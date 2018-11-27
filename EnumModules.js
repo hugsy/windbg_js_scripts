@@ -34,12 +34,12 @@ function *LoadedModuleList()
 
     // Dereference the pointer (which makes us point to ntoskrnl)
     // Cast it to nt!KLDR_DATA_TABLE_ENTRY
-    let pNtLdrDataEntry = host.createPointerObject(pPsLoadedModuleHead.address, "nt", "_KLDR_DATA_TABLE_ENTRY *");
+    let pNtLdrDataEntry = host.createPointerObject(pPsLoadedModuleHead.address, "nt", "_LDR_DATA_TABLE_ENTRY *");
 
     // Create the iterator
     let PsLoadedModuleList = host.namespace.Debugger.Utility.Collections.FromListEntry(
         pNtLdrDataEntry.InLoadOrderLinks,
-        "nt!_KLDR_DATA_TABLE_ENTRY",
+        "nt!_LDR_DATA_TABLE_ENTRY",
         "InLoadOrderLinks"
     );
 
