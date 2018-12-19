@@ -67,6 +67,7 @@ function invokeScript()
  */
 function initializeScript()
 {
+    log("[+] Creating the variable `LoadedModules`...");
     return [new host.functionAlias(LoadedModuleList, "LoadedModules")];
 }
 

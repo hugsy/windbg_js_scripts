@@ -53,8 +53,7 @@ function *LoadedDlls()
  */
 function initializeScript()
 {
-    return [
-        new host.functionAlias(LoadedDlls, "LoadedDlls")
-    ];
+    log("[+] Creating the variable `LoadedDlls`...");
+    return [ new host.functionAlias(LoadedDlls, "LoadedDlls") ];
 }
 

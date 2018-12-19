@@ -11,6 +11,11 @@
 "use strict";
 
 const log = x => host.diagnostics.debugLog(x + "\n");
+const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
+const Dereference = addr => host.evaluateExpression("(unsigned int*)0x" + addr.toString(16)).dereference();
+
+function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16)).First(); }
+
 
 class SsdtEntry
 {
@@ -28,34 +33,27 @@ class SsdtEntry
 
 
 /**
- * Run a native WinDBG command and get the result as a string
- */
-function ExecuteCommand(cmd)
-{
-    return host.namespace.Debugger.Utility.Control.ExecuteCommand(cmd);
-}
-
-
-/**
  * Dereference an integer pointer
  */
-function Dereference(addr)
+/*
+ function Dereference(addr)
 {
     return host.evaluateExpression("(unsigned int*)0x" + addr.toString(16)).dereference();
 }
-
+*/
 
 /**
  * Retrieve a symbol from an address
  *
  * Note: AFAIK there is no native way to do so, it's a bit hackish but works
  */
+/*
 function GetSymbolFromAddress(addr)
 {
-    var res = ExecuteCommand('.printf "%y", ' + addr.toString(16)).First();
+    var res = system('.printf "%y", ' + addr.toString(16)).First();
     return res;
 }
-
+*/
 
 /**
  * Retrieve the SSDT offsets from nt!KeServiceDescriptorTable
@@ -93,5 +91,6 @@ function initializeScript()
     //
     // Alias the function to WinDBG
     //
+    log("[+] Creating the variable `ServiceTable` for the SSDT...");
     return [new host.functionAlias(ShowSsdtTable, "ServiceTable")];
 }
