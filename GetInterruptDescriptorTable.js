@@ -94,5 +94,8 @@ function *ShowIdtTable(Index)
  */
 function initializeScript()
 {
-    return [new host.functionAlias(ShowIdtTable, "Idt")];
+    log("[+] Creating the variable `Idt` for the SSDT...");
+    return [
+        new host.functionAlias(ShowIdtTable, "Idt")
+    ];
 }

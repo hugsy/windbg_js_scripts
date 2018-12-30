@@ -101,7 +101,11 @@ function invokeScript()
  */
 function initializeScript()
 {
-    return [
-        new host.functionAlias(SetBreakpoint, "trace"),
-    ];
+
+    if(IsKd())
+    {
+       log("[+] Installing new command `!trace`...");
+       return [new host.functionAlias(SetBreakpoint, "trace"),];
+    }
+
 }
