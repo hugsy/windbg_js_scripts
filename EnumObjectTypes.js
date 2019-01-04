@@ -77,7 +77,6 @@ function invokeScript()
  */
 function initializeScript()
 {
-    return [
-        new host.functionAlias(ListObjects, "ObjectTypes"),
-    ];
+    log("[+] Creating the variable `ObjectTypes`...");
+    return [new host.functionAlias(ListObjects, "ObjectTypes"), ];
 }
