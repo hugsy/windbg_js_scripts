@@ -26,7 +26,6 @@ const u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
-const Dereference = addr => host.evaluateExpression("(unsigned int*)0x" + addr.toString(16)).dereference();
 
 function ReadWideString (x) { return host.memory.readWideString(x); };
 function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
@@ -35,8 +34,9 @@ function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else ret
 function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16)).First(); }
 
 
-
-
+/**
+ *
+ */
 class SiloMonitor
 {
     constructor(Address)
@@ -61,8 +61,59 @@ class SiloMonitor
 
     toString()
     {
-        return `\nSlotIndex: ${this.SlotIndex}\n\tName: '${this.Name}'\n\tSlotData: ${this.SlotData}\n\tCreateCallback: ${this.CreateCallback}\n\tDestroyCallback: ${this.DestroyCallback}`;
+        return `SlotIndex: ${this.SlotIndex}\n\tName: '${this.Name}'\n\tSlotData: ${this.SlotData}\n\tCreateCallback: ${this.CreateCallback}\n\tDestroyCallback: ${this.DestroyCallback}`;
     }
+}
+
+
+/**
+ *
+ */
+class SiloMonitorList
+{
+    constructor()
+    {
+    }
+
+    getDimensionality()
+    {
+        return 1;
+    }
+
+    getValueAt(idx)
+    {
+        for (var sm of this)
+        {
+            if (sm.SlotIndex == idx)
+            {
+                return sm;
+            }
+        }
+        return undefined;
+    }
+
+    *[Symbol.iterator]()
+    {
+        if (IsKd() && IsX64())
+        {
+            let PspSiloMonitorListHead = host.createPointerObject(
+                host.getModuleSymbolAddress("nt", "PspSiloMonitorList"),
+                "nt",
+                "_LIST_ENTRY*"
+            );
+
+            var Cur = PspSiloMonitorListHead.Flink;
+
+            while (Cur.address != PspSiloMonitorListHead.address)
+            {
+                let CurSiloMon = new SiloMonitor(Cur.address);
+                //yield CurSiloMon;
+                yield new host.indexedValue(CurSiloMon, [CurSiloMon.SlotIndex]);
+                Cur = Cur.Flink;
+            }
+        }
+    }
+
 }
 
 
@@ -92,19 +143,9 @@ function GetSlot(index)
  */
 function *GetSiloMonitorIterator()
 {
-    let PspSiloMonitorListHead = host.createPointerObject(
-        host.getModuleSymbolAddress("nt", "PspSiloMonitorList"),
-        "nt",
-        "_LIST_ENTRY*"
-    );
-
-    var Cur = PspSiloMonitorListHead.Flink;
-
-    while (Cur.address != PspSiloMonitorListHead.address)
+    for (let s of new SiloMonitorList())
     {
-        let CurSiloMon = new SiloMonitor(Cur.address);
-        yield CurSiloMon;
-        Cur = Cur.Flink;
+        yield s;
     }
 }
 
@@ -114,10 +155,7 @@ function *GetSiloMonitorIterator()
  */
 function invokeScript()
 {
-    for (var sm of GetSiloMonitorIterator())
-    {
-        log(sm.toString());
-    }
+   return GetSiloMonitorIterator();
 }
 
 
