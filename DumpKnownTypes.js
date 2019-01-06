@@ -36,7 +36,8 @@ function DumpTypeIndex()
             //    +0x002 MaximumLength    : Uint2B
             //    +0x008 Buffer           : Ptr64 Wchar
             //
-            log("- Type[" + i + "] = '"+ ReadWideString(pObTypeIndexTable[i].Name.Buffer) + "'");
+            let ObjectName = ReadWideString(pObTypeIndexTable[i].Name.Buffer);
+            log(`- Type[${i}] = '${ObjectName}'`);
             i++
         }
         catch(err)

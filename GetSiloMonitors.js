@@ -81,7 +81,7 @@ function GetSlot(index)
     //
     // dx @$getSlot = (x => ((void**)@$storage)[x * 2 + 1] & ~1);
     //
-    let SlotArray = host.evaluateExpression("(void**)0x" + Storage.address.toString(16));
+    let SlotArray = host.createPointerObject(Storage.address, "nt", "void**");
     let Slot = SlotArray[2*index + 1];
     return Slot.address.bitwiseAnd(~1);
 }

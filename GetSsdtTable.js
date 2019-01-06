@@ -2,11 +2,14 @@
  *
  * Get the SSDT (nt) as WinDBG convience array
  *
- * Note: this script is done for x64 versions of Windows (no need on x32)
  *
- * Use as:
+ * Usage:
  * kd> .scriptload \path\to\GetSsdtTable.js
+ * kd> dx @$ServiceTable()
+ *
+ * Example:
  * kd> dx @$ServiceTable().Where( s => s.Name.Contains("nt") ).Count()
+ *
  */
 "use strict";
 
@@ -14,6 +17,7 @@ const log = x => host.diagnostics.debugLog(x + "\n");
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const Dereference = addr => host.evaluateExpression("(unsigned int*)0x" + addr.toString(16)).dereference();
 
+function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
 function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16)).First(); }
 
 
@@ -56,7 +60,16 @@ function *ShowSsdtTable()
     let OffsetTable = FetchSsdtOffsets();
     for (var i = 0 ; i < OffsetTable.Offsets.Count(); i++)
     {
-        var Address = OffsetTable.Base.add(OffsetTable.Offsets[i] >> 4);
+        var Address;
+
+        if (IsX64())
+        {
+            Address = OffsetTable.Base.add(OffsetTable.Offsets[i] >> 4);
+        }
+        else
+        {
+            Address = OffsetTable.Base.add(OffsetTable.Offsets[i]);
+        }
         var Symbol = GetSymbolFromAddress(Address);
         yield new SsdtEntry(Address, Symbol) ;
     }
