@@ -27,33 +27,10 @@ class SsdtEntry
 
     toString()
     {
-        return "(" + this.Address.toString(16) + ") " + this.Name;
+        return `(${this.Address.toString(16)}) ${this.Name}`;
     }
 }
 
-
-/**
- * Dereference an integer pointer
- */
-/*
- function Dereference(addr)
-{
-    return host.evaluateExpression("(unsigned int*)0x" + addr.toString(16)).dereference();
-}
-*/
-
-/**
- * Retrieve a symbol from an address
- *
- * Note: AFAIK there is no native way to do so, it's a bit hackish but works
- */
-/*
-function GetSymbolFromAddress(addr)
-{
-    var res = system('.printf "%y", ' + addr.toString(16)).First();
-    return res;
-}
-*/
 
 /**
  * Retrieve the SSDT offsets from nt!KeServiceDescriptorTable
