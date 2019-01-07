@@ -1,82 +1,106 @@
 /**
  *
- * Enumerate object types from nt!ObpRootDirectoryObject
+ * Enumerate all objects in nt!ObpRootDirectoryObject
  *
  */
 "use strict";
 
 
 const log = x => host.diagnostics.debugLog(x + "\n");
-
+const getHeader = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
+const getName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectName
+const getTypeName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectType
 
 /**
  *
  */
-function *ListObjects()
+function *DumpDirectory(objectDirectory, parentName)
 {
-
-    var ptrsz = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize;
-    var hdrsz = host.evaluateExpression("sizeof(_OBJECT_HEADER)");
-
     //
-    // We must substract because _OBJECT_HEADER and the object body itself overlap by sizeof(void*)
-    // http://codemachine.com/article_objectheader.html
+    // Create the full directory name
     //
-    var hdroff = hdrsz - ptrsz;
+    var rootName = parentName + "\\" + getName(objectDirectory).slice(1, -1);
+    if (rootName === "\\\\") rootName = "";
 
     //
-    // x nt!ObpRootDirectoryObject
+    // Dump the 37 hash buckets
     //
-    var pObpRootDirectoryObject = host.getModuleSymbolAddress("nt", "ObpRootDirectoryObject");
+    for (var bucketEntry of objectDirectory.HashBuckets)
+    {
+        //
+        // Only if non-empty
+        //
+        if (!bucketEntry.isNull)
+        {
+            //
+            // Get the first chain
+            //
+            var chainEntry = bucketEntry;
+            while (true)
+            {   
+                //
+                // Get the object
+                // 
+                var obj = chainEntry.Object;
 
+                //
+                // Get its name. If it's paged out, don't bother splicing
+                //
+                var objName = getName(obj);
+                if (objName !== undefined) objName = objName.slice(1, -1);
+
+                //
+                // Return the full path of the object
+                //
+                yield rootName + "\\" + objName;
+
+                //
+                // Get its type and check if it's a directory object
+                //
+                var objType = getTypeName(obj);
+                if (objType === "Directory")
+                {
+                    //
+                    // Recursively call the generator on the sub-directory
+                    //
+                    var dirObject = host.createTypedObject(obj.address,
+                                                           "nt",
+                                                           "_OBJECT_DIRECTORY");
+                    yield *DumpDirectory(dirObject, rootName);
+                }
+
+                //
+                // Move to the next entry in the chain
+                //
+                if (chainEntry.ChainLink.isNull === true) break;
+                chainEntry = chainEntry.ChainLink.dereference();
+            }
+        }
+    }
+}
+
+function EnumObjects()
+{
     //
     // dx (_OBJECT_DIRECTORY*)&nt!ObpRootDirectoryObject
     //
-    var RootDirectoryObject = host.createPointerObject(pObpRootDirectoryObject, "nt", "_OBJECT_DIRECTORY *");
-
+    var testDir = host.getModuleSymbol("nt", 
+                                       "ObpRootDirectoryObject",
+                                       "_OBJECT_DIRECTORY*");
 
     //
-    // On each HashBucket
+    // Dump the root directory
     //
-    for(var i=0; i<RootDirectoryObject.HashBuckets.Count(); i++)
-    {
-        try
-        {
-            //
-            // Find the object header and dump infos
-            //
-            var ObjDirEntry = RootDirectoryObject.HashBuckets[i];
-            var ObjectHeaderAddress = ObjDirEntry.Object.address.subtract(hdroff);
-            var ObjectHeader = host.createPointerObject(ObjectHeaderAddress, "nt", "_OBJECT_HEADER*");
-            yield ObjectHeader;
-        }
-        catch(err)
-        {
-        }
-    }
-
+    return DumpDirectory(testDir, "");
 }
-
-
-/**
- *
- */
-function invokeScript()
-{
-    let i = 0;
-    for( let obj of ListObjects() )
-    {
-        log(i.toString() + " " + obj.address.toString(16) + " " + obj.ObjectName + " (" + obj.TypeIndex + ")");
-        i+= 1;
-    }
-}
-
 
 /**
  *
  */
 function initializeScript()
 {
-    log("[+] Creating the variable `ObjectTypes`...");
-    return [new host.functionAlias(ListObjects, "ObjectTypes"), ];
+    log("[+] Creating the method `ObjectDump`...");
+    return [new host.functionAlias(EnumObjects, "ObjectDump"),
+            new host.apiVersionSupport(1, 3)];
 }
+
