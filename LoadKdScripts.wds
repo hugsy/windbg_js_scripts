@@ -9,17 +9,16 @@ $$
 {
 
     .if ${/d:$arg1} == 0
-	{
+    {
         .echo [+] Loading KD scripts...
-
         .foreach /f ( kdscript "\\vboxsrv\code\windbg_js_scripts\kdautoload.lst")
         {
             .echo [+] Loading kdscript
             .scriptload kdscript
         }
 
-		.leave;
-	}
+        .leave;
+    }
 
 
     .if '${$arg1}' == '-u'
