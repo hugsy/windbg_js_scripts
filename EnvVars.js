@@ -68,7 +68,8 @@ function *GetEnvironmentVariables()
 function initializeScript()
 {
     return [
-        new host.functionAlias(GetEnvironmentVariables, "env")
+        new host.functionAlias(GetEnvironmentVariables, "env"),
+        new host.apiVersionSupport(1, 2),
     ];
 }
 
