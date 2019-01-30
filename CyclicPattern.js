@@ -108,6 +108,24 @@ class CyclicPattern
     {
         return "Generate a de Bruijn cyclic sequence, and/or search through it";
     }
+
+
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            Create:
+            {
+                PreferShow: true,
+                Help: "Create(length [, cycle]) - Create a DeBruijn sequence of specified length."
+            },
+
+            Search: {
+                PreferShow: true,
+                Help: "Search(pattern, length) - Search a hexadecimal pattern inside a DeBruijn sequence"
+          },
+        };
+    }
+
 }
 
 
