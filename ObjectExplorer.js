@@ -11,7 +11,9 @@ const getHeader = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEAD
 const getName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectName
 const getTypeName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectType
 
-
+var NativeTypes = {
+    APLCPort: "nt!_KALPC_PORT",
+};
 
 
 
@@ -22,19 +24,59 @@ class WinObj
      */
     constructor(parent, obj)
     {
-        if (parent === null)
-        {
-            this.Parent = "";
-        }
-        else
-        {
-            this.Parent = parent;
-        }
+        //
+        // Set the current WinObj parent
+        //
+        this.Parent = (parent === null) ? "" : parent;
 
         //
-        // Save the raw _OBJECT_HEADER
+        // Get its type
         //
-        this.RawObjectHeader = obj;
+        this.Type = getTypeName(obj);
+
+
+        //
+        // Save the raw _OBJECT_HEADER (ugly af but works)
+        //
+        switch(this.Type)
+        {
+            case "Type":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_TYPE");
+                break;
+
+            case "Event":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_KEVENT");
+                break;
+
+            case "Driver":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_DRIVER_OBJECT");
+                break;
+
+            case "Device":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_DEVICE_OBJECT");
+                break;
+
+            case "ALPC Port":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_ALPC_PORT");
+                break;
+
+            case "Section":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_SECTION");
+                break;
+
+            case "SymbolicLink":
+                this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_SYMBOLIC_LINK");
+                break;
+
+            //
+            // todo : finish it
+            //
+
+            default:
+                this.RawObjectHeader = obj;
+                break;
+        }
+
 
         //
         // Get its name. If it's paged out, don't bother splicing
@@ -43,10 +85,6 @@ class WinObj
         if (this.Name !== undefined)
             this.Name = this.Name.slice(1, -1);
 
-        //
-        // Get its type
-        //
-        this.Type = getTypeName(this.RawObjectHeader);
     }
 
     /**
