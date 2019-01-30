@@ -121,14 +121,12 @@ class WinObjDirectory extends WinObj
     constructor(parent, obj)
     {
         super(parent, obj);
-        this.__children = [];
-        this.Walk();
     }
 
     /**
      * Visit children nodes and store the objects in an array
      */
-    Walk()
+    *Walk()
     {
         var dirObject = host.createTypedObject(
             this.RawObjectHeader.address,
@@ -138,13 +136,13 @@ class WinObjDirectory extends WinObj
 
         for (let Child of this.DumpDirectory(dirObject))
         {
-            this.__children.push(Child);
+            yield Child;
         }
     }
 
     get Children()
     {
-        return this.__children;
+        return this.Walk();
     }
 }
 
