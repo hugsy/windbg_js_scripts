@@ -3,7 +3,9 @@
  * Get the environment variables
  *
  * 0:000> .scriptload \path\to\EnvVars.js
- * 0:000> dx @$env().Where(e => e.Name == "USERNAME")
+ * 0:000> dx @$curprocess.Environment.Variables.Where( var => var.Name.Contains("SYMBOL") )
+ * @$curprocess.Environment.Variables.Where( var => var.Name.Contains("SYMBOL") )
+ *   [0x0]            : _NT_SYMBOL_PATH = srv*C:\Syms*http://msdl.microsoft.com/download/symbols
  *
  */
 
@@ -23,7 +25,7 @@ class EnvironmentVariable
 
     toString()
     {
-        return "(" + this.Address.toString(16) + ") " + this.Name + "=" + this.Value;
+        return `${this.Name} = ${this.Value}`;
     }
 }
 
@@ -62,14 +64,27 @@ function *GetEnvironmentVariables()
 }
 
 
+class ModelParent
+{
+    get Variables()
+    {
+        return GetEnvironmentVariables();
+    }
+}
+
+
+
 /**
  * Initialize the function alias.
  */
 function initializeScript()
 {
     return [
-        new host.functionAlias(GetEnvironmentVariables, "env"),
-        new host.apiVersionSupport(1, 2),
+        new host.namedModelParent(
+            ModelParent,
+            'Debugger.Models.Process.Environment'
+        ),
+        new host.apiVersionSupport(1, 3),
     ];
 }
 
