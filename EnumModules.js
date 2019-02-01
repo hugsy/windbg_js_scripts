@@ -22,12 +22,6 @@ function IsKd(){ return host.namespace.Debugger.Sessions.First().Attributes.Targ
 function *LoadedModuleList()
 {
 
-    if ( !IsKd() )
-    {
-        log("Not KD");
-        return;
-    }
-
     // Get the value associated to the symbol nt!PsLoadedModuleList
     // And cast it as nt!LIST_ENTRY
     let pPsLoadedModuleHead = host.createPointerObject(host.getModuleSymbolAddress("nt", "PsLoadedModuleList"), "nt", "_LIST_ENTRY *");
@@ -55,10 +49,26 @@ function *LoadedModuleList()
  */
 function invokeScript()
 {
+    if ( !IsKd() )
+    {
+        log("Not KD");
+        return;
+    }
+
     for ( var mod of LoadedModuleList() )
     {
         log(" - " + mod.FullDllName);
     }
+}
+
+
+class SessionModelParent
+{
+    get Modules()
+    {
+        return LoadedModuleList();
+    }
+
 }
 
 
@@ -68,6 +78,16 @@ function invokeScript()
 function initializeScript()
 {
     log("[+] Creating the variable `LoadedModules`...");
-    return [new host.functionAlias(LoadedModuleList, "LoadedModules")];
+    return [
+        new host.functionAlias(
+            LoadedModuleList,
+            "LoadedModules"
+        ),
+        new host.namedModelParent(
+            SessionModelParent,
+            'Debugger.Models.Session'
+        ),
+        new host.apiVersionSupport(1, 3)
+    ];
 }
 

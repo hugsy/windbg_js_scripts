@@ -24,12 +24,6 @@ function IsKd(){ return host.namespace.Debugger.Sessions.First().Attributes.Targ
  */
 function *LoadedDlls()
 {
-    if (IsKd())
-    {
-        log("Cannot run in KD");
-        yield;
-    }
-
     // Get the PEB and Loader info from the the pseudo-registers
     let peb = host.namespace.Debugger.State.PseudoRegisters.General.peb;
 
@@ -44,7 +38,36 @@ function *LoadedDlls()
     {
         yield m;
     }
+}
 
+
+/**
+ *
+ */
+function invokeScript()
+{
+    if (IsKd())
+    {
+        log("Cannot run in KD");
+        return;
+    }
+
+    for( let dll of LoadedDlls() )
+    {
+        log(" - " + dll.FullDllName);
+    }
+}
+
+
+/**
+ *
+ */
+class SessionModelParent
+{
+    get Dlls()
+    {
+        return LoadedDlls();
+    }
 }
 
 
@@ -54,6 +77,16 @@ function *LoadedDlls()
 function initializeScript()
 {
     log("[+] Creating the variable `LoadedDlls`...");
-    return [ new host.functionAlias(LoadedDlls, "LoadedDlls") ];
+    return [
+        new host.functionAlias(
+            LoadedDlls,
+            "LoadedDlls"
+        ),
+        new host.namedModelParent(
+            SessionModelParent,
+            'Debugger.Models.Process'
+        ),
+        new host.apiVersionSupport(1, 3)
+    ];
 }
 
