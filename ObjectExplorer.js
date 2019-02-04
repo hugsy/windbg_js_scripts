@@ -36,28 +36,34 @@ class WinObj
         //
         switch(this.Type)
         {
-            case "Type":          this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_TYPE"); break;
-            case "Event":         this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_KEVENT"); break;
-            case "Driver":        this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_DRIVER_OBJECT"); break;
-            case "Device":        this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_DEVICE_OBJECT"); break;
-            case "ALPC Port":     this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_ALPC_PORT"); break;
-            case "Section":       this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_SECTION"); break;
-            case "SymbolicLink":  this.RawObjectHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_SYMBOLIC_LINK"); break;
+            case "Type":          this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_TYPE"); break;
+            case "Event":         this.RawHeader = host.createTypedObject(obj.address, "nt", "_KEVENT"); break;
+            case "Driver":        this.RawHeader = host.createTypedObject(obj.address, "nt", "_DRIVER_OBJECT"); break;
+            case "Device":        this.RawHeader = host.createTypedObject(obj.address, "nt", "_DEVICE_OBJECT"); break;
+            case "ALPC Port":     this.RawHeader = host.createTypedObject(obj.address, "nt", "_ALPC_PORT"); break;
+            case "Section":       this.RawHeader = host.createTypedObject(obj.address, "nt", "_SECTION"); break;
+            case "SymbolicLink":  this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_SYMBOLIC_LINK"); break;
 
             //
             // todo : finish it
             //
 
             default:
-                this.RawObjectHeader = obj;
+                this.RawHeader = obj;
                 break;
         }
+
+        this.RawObjectHeader = host.createTypedObject(
+            getHeader(obj),
+            "nt", "_OBJECT_HEADER"
+        );
+
 
 
         //
         // Get its name. If it's paged out, don't bother splicing
         //
-        this.Name = getName(this.RawObjectHeader);
+        this.Name = getName(this.RawHeader);
         if (this.Name !== undefined)
             this.Name = this.Name.slice(1, -1);
 
@@ -145,7 +151,7 @@ class WinObjDirectory extends WinObj
     *Walk()
     {
         var dirObject = host.createTypedObject(
-            this.RawObjectHeader.address,
+            this.RawHeader.address,
             "nt",
             "_OBJECT_DIRECTORY"
         );
