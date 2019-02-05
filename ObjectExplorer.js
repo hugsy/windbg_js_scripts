@@ -43,6 +43,7 @@ class WinObj
             case "ALPC Port":     this.RawHeader = host.createTypedObject(obj.address, "nt", "_ALPC_PORT"); break;
             case "Section":       this.RawHeader = host.createTypedObject(obj.address, "nt", "_SECTION"); break;
             case "SymbolicLink":  this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_SYMBOLIC_LINK"); break;
+            case "Directory":     this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_DIRECTORY"); break;
 
             //
             // todo : finish it
