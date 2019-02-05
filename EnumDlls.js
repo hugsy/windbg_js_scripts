@@ -17,6 +17,24 @@
 const log = x => host.diagnostics.debugLog(x + "\n");
 
 function IsKd(){ return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget != 0; }
+function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
+
+
+const IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE = 0x0040;
+const IMAGE_DLLCHARACTERISTICS_FORCE_INTEGRITY = 0x0080;
+const IMAGE_DLLCHARACTERISTICS_NX_COMPAT = 0x0100;
+const IMAGE_DLLCHARACTERISTICS_NO_ISOLATION = 0x0200;
+const IMAGE_DLLCHARACTERISTICS_NO_SEH = 0x0400;
+const IMAGE_DLLCHARACTERISTICS_NO_BIND = 0x0800;
+
+const g_FlagsToCheck = {
+    "DYNAMIC_BASE": 0x0040,
+    "FORCE_INTEGRITY": 0x0080,
+    "NX_COMPAT": 0x0100,
+    "NO_ISOLATION": 0x0200,
+    "NO_SEH": 0x0400,
+    "NO_BIND": 0x0800
+};
 
 
 /**
@@ -44,6 +62,32 @@ function *LoadedDlls()
 /**
  *
  */
+function CheckSec(ImagePath, Dll)
+{
+    var DosHeader = host.createTypedObject(Dll.DllBase.address, "ntdll", "_IMAGE_DOS_HEADER");
+    var PeHeader = IsX64()
+        ? host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64")
+        : host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS32");
+    var PeFlags = PeHeader.OptionalHeader.DllCharacteristics;
+    var flags = [];
+
+    for( let flagName in g_FlagsToCheck )
+    {
+        let flagValue = g_FlagsToCheck[flagName];
+        if (PeFlags & flagValue)
+        {
+            flags.push(flagName);
+        }
+    }
+
+    return `- Image : "${ImagePath}"\n\tFlags : ${flags.join("|")}`;
+}
+
+
+
+/**
+ *
+ */
 function invokeScript()
 {
     if (IsKd())
@@ -52,9 +96,10 @@ function invokeScript()
         return;
     }
 
-    for( let dll of LoadedDlls() )
+    for( let Dll of LoadedDlls() )
     {
-        log(" - " + dll.FullDllName);
+        var Name = host.memory.readWideString(Dll.FullDllName.Buffer.address);
+        log(CheckSec(Name, Dll));
     }
 }
 
