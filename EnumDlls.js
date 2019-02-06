@@ -121,11 +121,11 @@ class SessionModelParent
  */
 function initializeScript()
 {
-    log("[+] Creating the variable `LoadedDlls`...");
+    log("[+] Adding the command `checksec`...");
     return [
         new host.functionAlias(
             LoadedDlls,
-            "LoadedDlls"
+            "checksec"
         ),
         new host.namedModelParent(
             SessionModelParent,
