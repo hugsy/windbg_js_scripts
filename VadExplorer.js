@@ -2,11 +2,9 @@
  *
  * Explore VADs of a process
  *
+ * Usage:
  * kd> .scriptload z:\windbg_js_scripts\vadexplorer.js
  * kd> dx @$cursession.Processes[<pid>].KernelObject.Vads()
- *
- * Links:
- * - https://www.nirsoft.net/kernel_struct/vista/MI_VAD_TYPE.html
  *
  */
 "use strict";
@@ -14,15 +12,16 @@
 
 const log = x => host.diagnostics.debugLog(x + "\n");
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
+const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 
-const PAGE_EXECUTE = 0x10;
-const PAGE_EXECUTE_READ = 0x20;
-const PAGE_EXECUTE_READWRITE = 0x40;
-const PAGE_EXECUTE_WRITECOPY = 0x80;
 const PAGE_NOACCESS = 0x01;
 const PAGE_READONLY = 0x02;
 const PAGE_READWRITE = 0x04;
 const PAGE_WRITECOPY = 0x08;
+const PAGE_EXECUTE = 0x10;
+const PAGE_EXECUTE_READ = 0x20;
+const PAGE_EXECUTE_READWRITE = 0x40;
+const PAGE_EXECUTE_WRITECOPY = 0x80;
 const PAGE_GUARD = 0x100;
 const PAGE_NOCACHE = 0x200;
 const PAGE_WRITECOMBINE =  0x400;
@@ -75,7 +74,17 @@ class Vad
         this.Address = address;
         this.VadObject = host.createTypedObject(this.Address, "nt", "_MMVAD");
 
-        this.__Protection = this.VadObject.Core.u.VadFlags.Protection;
+        //
+        // The 4-bit protection does *not* match the traditional values, but is an index
+        // to `nt!MmProtectToValue` array.
+        //
+        this.__ProtectionIndex = this.VadObject.Core.u.VadFlags.Protection;
+        this.__MmProtectToValue = host.getModuleSymbolAddress("nt", "MmProtectToValue");
+        this.__Protection = u32(this.__MmProtectToValue.add(4*this.__ProtectionIndex));
+
+        //
+        // The 3-bit is an index in VAD_TYPES (see MI_VAD_TYPES - https://www.nirsoft.net/kernel_struct/vista/MI_VAD_TYPE.html)
+        //
         this.__VadType = this.VadObject.Core.u.VadFlags.VadType;
         this.StartingVpn = this.VadObject.Core.StartingVpnHigh.bitwiseShiftLeft(32).add(this.VadObject.Core.StartingVpn);
         this.StartingVA = this.StartingVpn.bitwiseShiftLeft(12);
