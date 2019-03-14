@@ -175,40 +175,82 @@ class Vad
 }
 
 
-/**
- *
- */
-class ProcessVads
+class VadList
 {
+
+    //
+    // Public
+    //
+
+    constructor(process)
+    {
+        this.Process = process;
+    }
+
+
     /**
      *
      */
-    *Vads()
+    get MaxLevel()
     {
-        for (let vad of this.Walk(0, this.VadRoot.Root.address))
+        let MaxLevel  = 0;
+
+        for(let vad of this)
+        {
+            if (vad.Level > MaxLevel)
+                MaxLevel = vad.Level;
+        }
+
+        return MaxLevel;
+    }
+
+
+
+    //
+    // Private
+    //
+
+    /**
+     *
+     */
+    *[Symbol.iterator]()
+    {
+        for (let vad of this.__Walk(0, this.Process.VadRoot.Root.address))
         {
             yield vad;
         }
     }
 
 
-
-    *Walk(level, VadAddress)
+    /**
+     *
+     */
+    *__Walk(level, VadAddress)
     {
         var nodeObject = host.createTypedObject(VadAddress, "nt", "_RTL_BALANCED_NODE");
 
         if( nodeObject.isNull || nodeObject.Left == undefined || nodeObject.Right == undefined)
             return;
 
-        //log(`In ProcessVads:Walk(${level}, ${VadAddress})`);
         yield new Vad(level, VadAddress);
 
         if(nodeObject.Left)
-            yield *this.Walk(level+1, nodeObject.Left.address);
+            yield *this.__Walk(level+1, nodeObject.Left.address);
 
         if(nodeObject.Right)
-            yield *this.Walk(level+1, nodeObject.Right.address);
+            yield *this.__Walk(level+1, nodeObject.Right.address);
+    }
+}
 
+
+/**
+ *
+ */
+class ProcessVads
+{
+    get Vads()
+    {
+        return new VadList(this);
     }
 }
 
@@ -218,7 +260,7 @@ class ProcessVads
  */
 function initializeScript()
 {
-    //log("[+] Extending EPROCESS with Vads() object");
+    //log("[+] Extending EPROCESS with Vads property...");
 
     return [
         new host.typeSignatureExtension(ProcessVads,  "_EPROCESS"),
