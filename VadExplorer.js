@@ -4,7 +4,7 @@
  *
  * Usage:
  * kd> .scriptload z:\windbg_js_scripts\vadexplorer.js
- * kd> dx @$cursession.Processes[<pid>].KernelObject.Vads()
+ * kd> dx @$cursession.Processes[<pid>].KernelObject.Vads
  *
  */
 "use strict";
