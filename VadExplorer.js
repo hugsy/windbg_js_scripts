@@ -137,16 +137,6 @@ class Vad
     /**
      *
      */
-    get SectionFlags()
-    {
-        let ControlArea = host.createTypedObject(this.VadObject.Subsection.ControlArea.address, "nt", "_CONTROL_AREA");
-        return ControlArea.u.Flags;
-    }
-
-
-    /**
-     *
-     */
     get Filename()
     {
         if(this.__VadType == VadNone)
