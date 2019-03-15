@@ -183,7 +183,7 @@ class VadList
 
     constructor(process)
     {
-        this.Process = process;
+        this.__process = process;
     }
 
 
@@ -203,24 +203,47 @@ class VadList
         return MaxLevel;
     }
 
+    /**
+     *
+     */
+    get Process()
+    {
+        return this.__process;
+    }
 
 
-    //
-    // Private
-    //
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            Process:
+            {
+                PreferShow: true,
+                Help: "Pointer to the current process."
+            },
+
+            MaxLevel: {
+                PreferShow: true,
+                Help: "The maximum level of recursion for the process's VADs."
+          },
+        };
+    }
+
 
     /**
      *
      */
     *[Symbol.iterator]()
     {
-        for (let vad of this.__Walk(0, this.Process.VadRoot.Root.address))
+        for (let vad of this.__Walk(0, this.__process.VadRoot.Root.address))
         {
             yield vad;
         }
     }
 
 
+    //
+    // Private
+    //
     /**
      *
      */
