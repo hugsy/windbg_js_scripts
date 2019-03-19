@@ -57,7 +57,7 @@ class BigPool
     /**
      *
      */
-    constructor(idx, obj)
+    constructor(obj)
     {
         this.__RawObject = obj;
         this.__VirtualAddress = obj.Va;
@@ -108,7 +108,7 @@ class BigPool
      */
     get IsFreed()
     {
-        return this.VirtualAddress.bitwiseAnd(1) === 0;
+        return this.__VirtualAddress.bitwiseAnd(1) === 0;
     }
 
 
@@ -117,7 +117,7 @@ class BigPool
      */
     toString()
     {
-        return `BigPool(VA=${this.VirtualAddress.toString(16)}, Tag=${this.Tag}, Size=${this.Size}, Type=${this.Type})`;
+        return `BigPool(VA=${this.VirtualAddress.toString(16)}, Tag='${this.Tag}', Size=${this.Size}, Type=${this.Type})`;
     }
 }
 
