@@ -1,6 +1,9 @@
 /**
- * Template file for new WinDbg JS scripts
+ * Browse through Big Pool chunks easily
  *
+ * Usage:
+ * kd> .scriptload z:\windbg_js_scripts\bigpool.js
+ * kd> dx @$BigPool().Where( p => p.Tag == "ThNm" )
  */
 
 "use strict";
