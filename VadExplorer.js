@@ -177,10 +177,9 @@ class Vad
 class VadList
 {
 
-    //
-    // Public
-    //
-
+    /**
+     *
+     */
     constructor(process)
     {
         this.__process = process;
@@ -188,7 +187,7 @@ class VadList
 
 
     /**
-     *
+     * MaxLevel getter
      */
     get MaxLevel()
     {
@@ -203,15 +202,18 @@ class VadList
         return MaxLevel;
     }
 
+
     /**
-     *
+     * Process getter
      */
     get Process()
     {
         return this.__process;
     }
 
-
+    /**
+     * Help
+     */
     get [Symbol.metadataDescriptor]()
     {
         return {
@@ -241,9 +243,6 @@ class VadList
     }
 
 
-    //
-    // Private
-    //
     /**
      *
      */

@@ -84,7 +84,7 @@ class WinObj
     /**
      *
      */
-    *DumpDirectory(ObjectDirectory)
+    *__DumpDirectory(ObjectDirectory)
     {
         //
         // Dump the 37 hash buckets
@@ -132,13 +132,27 @@ class WinObj
             }
         }
     }
+
+    /**
+     * Help
+     */
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            Parent: { Help: "Pointer to the parent WinObj node.", },
+            Name: { Help: "Name of the current node.", },
+            Type: { Help: "The type of the current node.", },
+            RawObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
+            RawHeader: { Help: "Pointer to the native Windows structure.", },
+        };
+    }
 }
 
 
 class WinObjDirectory extends WinObj
 {
     /**
-     * Directory WinObj objects
+     * Initialize new WinObjDirectory
      */
     constructor(parent, obj)
     {
@@ -149,24 +163,27 @@ class WinObjDirectory extends WinObj
     /**
      * Visit children nodes and store the objects in an array
      */
-    *Walk()
+    *__Walk()
     {
-        var dirObject = host.createTypedObject(
+        let dirObject = host.createTypedObject(
             this.RawHeader.address,
             "nt",
             "_OBJECT_DIRECTORY"
         );
 
-        for (let Child of this.DumpDirectory(dirObject))
+        for (let Child of this.__DumpDirectory(dirObject))
         {
             yield Child;
         }
     }
 
 
+    /**
+     * WinObjDirectory.Children getter
+     */
     get Children()
     {
-        return this.Walk();
+        return this.__Walk();
     }
 
 
@@ -175,13 +192,41 @@ class WinObjDirectory extends WinObj
      */
     toString()
     {
-        return WinObj.prototype.toString.call(this); // + " [d]";
+        return WinObj.prototype.toString.call(this);
+    }
+
+    /**
+     * Help
+     */
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            Children: { Help: "Enumerate all the children to this node.", },
+            Parent: { Help: "Pointer to the parent WinObj node.", },
+            Name: { Help: "Name of the current node.", },
+            Type: { Help: "The type of the current node.", },
+            RawObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
+            RawHeader: { Help: "Pointer to the native Windows structure.", },
+        };
     }
 }
 
 
 class SessionModelParent
 {
+    /**
+     * Help
+     */
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            Objects: { Help: "Root of the Windows Named Object directory.", },
+        };
+    }
+
+    /**
+     * Root object getter
+     */
     get Objects()
     {
         //
