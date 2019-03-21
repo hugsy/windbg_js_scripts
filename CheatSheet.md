@@ -36,6 +36,11 @@ List all ALPC ports by reading `nt!AlpcpPortList`
 dx -r0 @$AlpcPortList = Debugger.Utility.Collections.FromListEntry( *(_LIST_ENTRY*)&nt!AlpcpPortList, "nt!_ALPC_PORT", "PortListEntry")
 ```
 
+Filter by process:
+```
+dx @$AlpcPortList.Where( a => ((char*)a.OwnerProcess->ImageFileName).ToDisplayString("sb") == "<ProcessName>.exe" )
+```
+
 Use [ObjectExplorer](windbg_js_scripts/ObjectExplorer.js) to collect all objects of type APLC port from object directory namespace
 ```
 dx -r0 @$AlpcPorts = @$cursession.Objects.Children.Where( obj => obj.Name == "RPC Control" ).First().Children.Where( rpc => rpc.Type == "ALPC Port")
