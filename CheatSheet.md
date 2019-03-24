@@ -36,6 +36,11 @@ Enumerate the jobs
 dx @$JobList = Debugger.Utility.Collections.FromListEntry( *(nt!_LIST_ENTRY*)&(nt!PspJobList), "nt!_EJOB", "JobLinks")
 ```
 
+Then, can dump all processes of this job
+```
+dx @$ProcessOfJobList = Debugger.Utility.Collections.FromListEntry( @$JobList.First().ProcessListHead, "nt!_EPROCESS", "Job")
+```
+
 ### ALPC ###
 
 List all ALPC ports by reading `nt!AlpcpPortList`
