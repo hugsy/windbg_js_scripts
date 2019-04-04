@@ -11,6 +11,8 @@
  *
  * Example
  * windbg> !CreateGraph "ntdll!NtCreateFile"
+ * or 
+ * windbg> !CreateGraph 0x41424344
  */
 
 "use strict";
