@@ -7,12 +7,12 @@
  * and never as a replacement to IDA
  *
  * Usage
- * windbg> .scriptload \\ph0ny\code\windbg_js_scripts\CreateGraph.js
+ * windbg> .scriptload \\ph0ny\code\windbg_js_scripts\CallGraph.js
  *
  * Example
- * windbg> !CreateGraph "ntdll!NtCreateFile"
- * or 
- * windbg> !CreateGraph 0x41424344
+ * windbg> !CallGraph "ntdll!NtCreateFile"
+ * or
+ * windbg> !CallGraph 0x41424344
  */
 
 "use strict";
@@ -125,7 +125,7 @@ function CreateGraph(location)
 
         for( let ins of bb.Instructions)
         {
-            OutputStr += `[0x${ins.Address.toString(16)}] ${ins.toString() }   <br/>\n`;
+            OutputStr += `<code>[0x${ins.Address.toString(16)}] ${ins.toString() }</code>   <br/>\n`;
         }
 
         OutputStr += '")\n';
@@ -155,14 +155,14 @@ function CreateGraph(location)
     // now write to file
     //
 
-    g_OutfileName = host.namespace.Debugger.Utility.FileSystem.TempDirectory + "\\WinDbgCreateGraph.html" ;
+    g_OutfileName = host.namespace.Debugger.Utility.FileSystem.TempDirectory + "\\WinDbgCallGraph.html" ;
 
     let hFile = host.namespace.Debugger.Utility.FileSystem.CreateFile(g_OutfileName, "CreateAlways");
     let TextWriter = host.namespace.Debugger.Utility.FileSystem.CreateTextWriter(hFile);
     TextWriter.WriteLine(OutputStr);
     hFile.Close();
 
-    g_OutfileName = host.namespace.Debugger.Utility.FileSystem.TempDirectory + "\\WinDbgCreateGraph.html" ;
+    g_OutfileName = host.namespace.Debugger.Utility.FileSystem.TempDirectory + "\\WinDbgCallGraph.html" ;
     log(`[+] Graph stored in '${g_OutfileName}'`);
 }
 
@@ -173,7 +173,7 @@ function CreateGraph(location)
 function initializeScript()
 {
     return [
-        new host.functionAlias(CreateGraph, "CreateGraph"),
+        new host.functionAlias(CreateGraph, "CallGraph"),
     ];
 }
 
