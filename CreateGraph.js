@@ -82,9 +82,13 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address)
  */
 function CreateGraph(location)
 {
-    let target = GetAddressFromSymbol(location);
-    let address = target.toString(16);
-    // log("[+] Generating CG for '" + location + "' -> 0x" + address + "...");
+    let target;
+
+    if (location.toString().startsWith("0x"))
+        target = location;
+    else
+        target = GetAddressFromSymbol(location);
+
 
     let dis = host.namespace.Debugger.Utility.Code.CreateDisassembler();
     let bbs = dis.DisassembleFunction(target).BasicBlocks.ToArray();
