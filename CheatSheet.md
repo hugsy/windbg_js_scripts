@@ -16,18 +16,30 @@ List Processes (`kd`)
 dx @$ProcessList = Debugger.Utility.Collections.FromListEntry( *(nt!_LIST_ENTRY*)&(nt!PsActiveProcessHead), "nt!_EPROCESS", "ActiveProcessLinks")
 ```
 
-### Threads by Process Id ###
+### Threads ###
+#### Threads by Process Id ####
 
 ```
 dx -r0 @$ThreadList = Debugger.Utility.Collections.FromListEntry( @$cursession.Processes[<PID>].KernelObject.ThreadListHead, "nt!_ETHREAD", "ThreadListEntry")
 ```
 
-### Threads by (First) Process Name ###
+#### Threads by (First) Process Name ####
 
 ```
 dx -r0 @$ThreadList = Debugger.Utility.Collections.FromListEntry( @$cursession.Processes.Where( p=>p.Name == "<ProcessName>").First().KernelObject.ThreadListHead, "nt!_ETHREAD", "ThreadListEntry")
 ```
 
+### Job ###
+
+Enumerate the jobs
+```
+dx @$JobList = Debugger.Utility.Collections.FromListEntry( *(nt!_LIST_ENTRY*)&(nt!PspJobList), "nt!_EJOB", "JobLinks")
+```
+
+Then, can dump all processes of this job
+```
+dx @$ProcessOfJobList = Debugger.Utility.Collections.FromListEntry( @$JobList.First().ProcessListHead, "nt!_EPROCESS", "Job")
+```
 
 ### ALPC ###
 
