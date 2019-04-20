@@ -10,9 +10,11 @@
  * windbg> .scriptload \\ph0ny\code\windbg_js_scripts\CallGraph.js
  *
  * Example
- * windbg> !CallGraph "ntdll!NtCreateFile"
+ * windbg> !callgraph "ntdll!NtCreateFile"
  * or
- * windbg> !CallGraph 0x41424344
+ * windbg> !callgraph 0x41424344
+ * or
+ * windbg> !callgraph
  */
 
 "use strict";
@@ -82,11 +84,14 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address)
 /**
  *
  */
-function CreateGraph(location)
+function CallGraph(location)
 {
     let target;
 
-    if (location.toString().startsWith("0x"))
+
+    if(location === undefined)
+        target = IsX64() ? $("rip") : $("eip");
+    else if (location.toString().startsWith("0x"))
         target = location;
     else
         target = GetAddressFromSymbol(location);
@@ -173,7 +178,7 @@ function CreateGraph(location)
 function initializeScript()
 {
     return [
-        new host.functionAlias(CreateGraph, "CallGraph"),
+        new host.functionAlias(CallGraph, "callgraph"),
     ];
 }
 
