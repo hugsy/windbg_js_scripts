@@ -88,18 +88,24 @@ function CallGraph(location)
 {
     let target;
 
-
     if(location === undefined)
-        target = IsX64() ? $("rip") : $("eip");
-    else if (location.toString().startsWith("0x"))
-        target = location;
+    {
+        target = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip.address;
+    }
     else
-        target = GetAddressFromSymbol(location);
+    {
+        target = host.evaluateExpression(location);
+
+        if(target === undefined)
+            target = GetAddressFromSymbol(location);
+    }
+
+    if(target === undefined)
+        return
 
     let dis = host.namespace.Debugger.Utility.Code.CreateDisassembler();
     let bbs = dis.DisassembleFunction(target).BasicBlocks.ToArray();
     let nb_bbs = bbs.Count();
-
 
     // log("[+] Found " + nb_bbs.toString() + " basic blocks");
 
@@ -113,8 +119,10 @@ function CallGraph(location)
     // create the basic blocks
     //
 
+    var title = location ? location : target.toString();
+
     var OutputStr = "";
-    OutputStr += `<html><head><title>${location}</title><script src='https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.0.0/mermaid.min.js'/></head>`;
+    OutputStr += `<html><head><title>${title}</title><script src='https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.0.0/mermaid.min.js'/></head>`;
     OutputStr += "<body></script><script>mermaid.initialize({startOnLoad:true});</script>";
     OutputStr += "<div class='mermaid'>\n";
     OutputStr += "graph TD\n\n";
@@ -122,18 +130,38 @@ function CallGraph(location)
     // log("[+] Create the nodes...");
 
     var i = 0;
+    var pc = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip.address;
 
     for( let bb of bbs )
     {
-        //log("[" + i.toString() + "] " + bb.toString());
-        OutputStr += `${i.toString()}("\n`;
+        let BlockName = i.toString();
+        let HighlighBlock = false;
+
+        OutputStr += `${BlockName}("\n`;
 
         for( let ins of bb.Instructions)
         {
+            if (ins.Address == pc)
+            {
+                OutputStr += "<b>";
+                HighlighBlock = true;
+            }
+
             OutputStr += `<code>[0x${ins.Address.toString(16)}] ${ins.toString() }</code>   <br/>\n`;
+
+            if (ins.Address == pc)
+            {
+                OutputStr += "</b>";
+            }
         }
 
         OutputStr += '")\n';
+
+        if (HighlighBlock === true)
+        {
+            OutputStr+= `style ${BlockName} fill:#FF4444,stroke:#333,stroke-width:4px\n`;
+        }
+
         i++;
     }
 
