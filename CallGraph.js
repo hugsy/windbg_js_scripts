@@ -50,6 +50,7 @@ function GetAddressFromSymbol(sym)
                 return res;
             }
         }
+        return null;
     }
     var parts = sym.split("!");
     return host.getModuleSymbolAddress(parts[0], parts[1]);
@@ -77,7 +78,7 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address)
         i = i + 1;
     }
 
-    return null;
+    return undefined;
 }
 
 
@@ -92,16 +93,20 @@ function CallGraph(location)
     {
         target = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip.address;
     }
-    else
+    else if (location.toString().startsWith("0x"))
     {
         target = host.evaluateExpression(location);
-
-        if(target === undefined)
-            target = GetAddressFromSymbol(location);
+    }
+    else
+    {
+        target = GetAddressFromSymbol(location);
     }
 
-    if(target === undefined)
+    if(target === undefined || target === null)
+    {
+        log("[-] unknown target");
         return
+    }
 
     let dis = host.namespace.Debugger.Utility.Code.CreateDisassembler();
     let bbs = dis.DisassembleFunction(target).BasicBlocks.ToArray();
