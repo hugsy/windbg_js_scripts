@@ -90,7 +90,7 @@ function CallGraph(location)
 
 
     if(location === undefined)
-        target = IsX64() ? $("rip") : $("eip");
+        target = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip.address;
     else if (location.toString().startsWith("0x"))
         target = location;
     else
