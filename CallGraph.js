@@ -88,10 +88,20 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address)
 function CallGraph(location)
 {
     let target;
+    let pc;
+
+    try
+    {
+        pc = IsX64() ? $("rip") : $("eip");
+    }
+    catch(e)
+    {
+        pc = 0;
+    }
 
     if(location === undefined)
     {
-        target = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip.address;
+        target = pc;
     }
     else if (location.toString().startsWith("0x"))
     {
@@ -135,7 +145,7 @@ function CallGraph(location)
     // log("[+] Create the nodes...");
 
     var i = 0;
-    var pc = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip.address;
+
 
     for( let bb of bbs )
     {
