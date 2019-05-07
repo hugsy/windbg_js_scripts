@@ -156,18 +156,20 @@ function CallGraph(location)
 
         for( let ins of bb.Instructions)
         {
-            if (ins.Address == pc)
+
+            if (ins.Address.compareTo(pc) === 0)
             {
                 OutputStr += "<b>";
                 HighlighBlock = true;
             }
 
-            OutputStr += `<code>[0x${ins.Address.toString(16)}] ${ins.toString() }</code>   <br/>\n`;
+            OutputStr += `<code>[0x${ins.Address.toString(16)}] ${ins.toString()}</code>   <br/>\n`;
 
-            if (ins.Address == pc)
+            if (ins.Address.compareTo(pc) === 0)
             {
                 OutputStr += "</b>";
             }
+
         }
 
         OutputStr += '")\n';
