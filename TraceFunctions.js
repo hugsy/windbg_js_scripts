@@ -6,9 +6,9 @@
  * 0:000> .scriptload \path\to\TraceFunctions.js
  * 0:000> !trace "ntdll!memset"
  * Or
- * 0:000> !trace "ntdll!memset", 3
+ * 0:000> !trace "ntdll!memset", "3"
  * Or
- * 0:000> !trace "8509f008", 2
+ * 0:000> !trace "8509f008", "1:3"
  * Or
  * 0:000> !trace "ntdll+0x245f"
  */
@@ -31,7 +31,7 @@ function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else ret
  * Print the arguments when called (x64 version)
  *
  * @param {*} loc
- * @param {*} n
+ * @param {*} range
  * @param {*} comment
  */
 function PrintRegistersCallback64(loc, n, comment="")
@@ -39,19 +39,20 @@ function PrintRegistersCallback64(loc, n, comment="")
     let ptrsize = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize;
     let regs = ["rcx", "rdx", "r8", "r9"];
     let output = new Array();
+    let min_range = parseInt(range.split(":")[0]);
+    let max_range = parseInt(range.split(":")[1]);
 
-    for( let i of [...Array( Math.min(n, 4) ).keys()] )
+    for( let i of [...Array(max_range).slice(min_range, max_range).keys()] )
     {
-        output.push(`arg[${i.toString()}]=${$(regs[i]).toString(16)}`);
-    }
-
-    if(n > 4)
-    {
-        for( let i of [...Array(n - 4).keys()] )
+        let index = min_range + i;
+        if( index < 4)
         {
-            let index = i + 4;
-            let arg = u64($("rsp") + ptrsize*(index + 1));
-            output.push(`arg[${i.toString()}]=${arg.toString(16)}`);
+            output.push(`arg[${index.toString()}]=${$(regs[index]).toString(16)}`);
+        }
+        else
+        {
+            let arg = u64($("rsp") + ptrsize*index);
+            output.push(`arg[${index.toString()}]=${arg.toString(16)}`);
         }
     }
 
@@ -64,18 +65,22 @@ function PrintRegistersCallback64(loc, n, comment="")
  * Print the arguments when called (x86 version)
  *
  * @param {*} loc
- * @param {*} n
+ * @param {*} range
  * @param {*} comment
  */
-function PrintRegistersCallback32(loc, n, comment="")
+function PrintRegistersCallback32(loc, range, comment="")
 {
     let ptrsize = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize;
     let output = new Array();
+    let parts = range.split(":");
+    let min_range = parseInt(parts[0]);
+    let max_range = parseInt(parts[1]);
 
-    for( let i of [...Array(n).keys()] )
+    for( let i of [...Array(max_range).slice(min_range, max_range).keys()] )
     {
-        let arg = u32($("esp") + ptrsize*(i + 1));
-        output.push(`arg[${i.toString()}]=${arg.toString(16)}`);
+        let index = min_range + i;
+        let arg = u32($("esp") + ptrsize*index);
+        output.push(`arg[${index.toString()}]=${arg.toString(16)}`);
     }
 
     log(`${comment}${loc}(${output.join(", ")})`);
@@ -126,18 +131,25 @@ function GetAddressFromSymbol(sym)
  * The credit for this breakpoint trick goes to by @0vercl0k
  *
  * @param {*} address
- * @param {*} nb_arg
+ * @param {*} range
  * @param {*} comment
  */
-function PrintCallArguments(location, nb, comment)
+function PrintCallArguments(location, range, comment)
 {
     if (!IsKd())
         return;
 
-    if (nb !== undefined)
-        nb = parseInt(nb);
+    if (range === undefined)
+    {
+        range = "0:4";
+    }
     else
-        nb = -1;
+    {
+        if (range.indexOf(":") === -1)
+        {
+            range = `0:${range}`;
+        }
+    }
 
     if (comment === undefined)
         comment = "";
@@ -149,15 +161,14 @@ function PrintCallArguments(location, nb, comment)
         address = `0x${address.toString(16)}`;
 
     let cmd = IsX64()
-    ? `bp /w "@$scriptContents.PrintRegistersCallback64(\\"${location}\\", ${nb}, \\"${comment}\\")" ${address}`
-    : `bp /w "@$scriptContents.PrintRegistersCallback32(\\"${location}\\", ${nb}, \\"${comment}\\")" ${address}`;
+    ? `bp /w "@$scriptContents.PrintRegistersCallback64(\\"${location}\\", \\"${range}\\", \\"${comment}\\")" ${address}`
+    : `bp /w "@$scriptContents.PrintRegistersCallback32(\\"${location}\\", \\"${range}\\", \\"${comment}\\")" ${address}`;
 
     system(cmd);
 
     let msg = `Breakpoint set for "${location}" at ${address}`;
-    if (nb >= 0)
-        msg += ` with ${nb} argument(s)`;
-    log(msg)
+    log(msg);
+
 }
 
 
