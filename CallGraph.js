@@ -39,21 +39,32 @@ var g_OutfileName ;
  */
 function GetAddressFromSymbol(sym)
 {
-    if (sym.indexOf("!") == -1)
+    // if (sym.indexOf("!") == -1)
+    // {
+    //     let default_modules = ["nt", "ntdll", "kernel32", "kernelbase"];
+    //     for (let mod of default_modules)
+    //     {
+    //         var res = host.getModuleSymbolAddress(mod, sym);
+    //         if (res != undefined)
+    //         {
+    //             return res;
+    //         }
+    //     }
+    //     return null;
+    // }
+    // var parts = sym.split("!");
+    // return host.getModuleSymbolAddress(parts[0], parts[1]);
+
+    let res = undefined;
+    for (let line of system(`x ${sym}`))
     {
-        let default_modules = ["nt", "ntdll", "kernel32", "kernelbase"];
-        for (let mod of default_modules)
+        if(line.includes(sym))
         {
-            var res = host.getModuleSymbolAddress(mod, sym);
-            if (res != undefined)
-            {
-                return res;
-            }
+            res = host.parseInt64(line.split(" ")[0], 16);
+            break;
         }
-        return null;
     }
-    var parts = sym.split("!");
-    return host.getModuleSymbolAddress(parts[0], parts[1]);
+    return res;
 }
 
 
