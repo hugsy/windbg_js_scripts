@@ -39,31 +39,34 @@ var g_OutfileName ;
  */
 function GetAddressFromSymbol(sym)
 {
-    // if (sym.indexOf("!") == -1)
-    // {
-    //     let default_modules = ["nt", "ntdll", "kernel32", "kernelbase"];
-    //     for (let mod of default_modules)
-    //     {
-    //         var res = host.getModuleSymbolAddress(mod, sym);
-    //         if (res != undefined)
-    //         {
-    //             return res;
-    //         }
-    //     }
-    //     return null;
-    // }
-    // var parts = sym.split("!");
-    // return host.getModuleSymbolAddress(parts[0], parts[1]);
-
-    let res = undefined;
-    for (let line of system(`x ${sym}`))
+    if (sym.indexOf("!") == -1)
     {
-        if(line.includes(sym))
+        let default_modules = ["nt", "ntdll", "kernel32", "kernelbase"];
+        for (let mod of default_modules)
         {
-            res = host.parseInt64(line.split(" ")[0], 16);
-            break;
+            var res = host.getModuleSymbolAddress(mod, sym);
+            if (res != undefined)
+            {
+                return res;
+            }
+        }
+        return null;
+    }
+    var parts = sym.split("!");
+    var res = host.getModuleSymbolAddress(parts[0], parts[1]);
+
+    if (res === undefined || res === null)
+    {
+        for (let line of system(`x ${sym}`))
+        {
+            if(line.includes(sym))
+            {
+                res = host.parseInt64(line.split(" ")[0], 16);
+                break;
+            }
         }
     }
+
     return res;
 }
 
@@ -130,15 +133,15 @@ function CallGraph(location)
     }
 
     let dis = host.namespace.Debugger.Utility.Code.CreateDisassembler();
-    let bbs = dis.DisassembleFunction(target).BasicBlocks.ToArray();
-    let nb_bbs = bbs.Count();
+    let fun = dis.DisassembleFunction(target);
+    let bbs = fun.BasicBlocks ; //.ToArray();
+    // let nb_bbs = bbs.Count();
 
     // log("[+] Found " + nb_bbs.toString() + " basic blocks");
-
-    if (nb_bbs == 0)
-    {
-        return;
-    }
+    // if (nb_bbs == 0)
+    // {
+    //     return;
+    // }
 
 
     //
