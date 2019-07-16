@@ -183,11 +183,12 @@ function BigPoolIterator()
  */
 function initializeScript()
 {
-    let CommandName = "BigPools";
-    log("[+] Adding command '" + CommandName + "'");
+    let CommandName = "BigPool";
+    log("[+] Adding function '" + CommandName + "'");
 
     return [
-        new host.functionAlias(BigPoolIterator, CommandName)
+        new host.functionAlias(BigPoolIterator, CommandName),
+        new host.apiVersionSupport(1, 3),
     ];
 }
 
