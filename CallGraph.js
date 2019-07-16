@@ -1,3 +1,8 @@
+///
+/// <reference path="JSProvider.d.ts" />
+///
+"use strict";
+
 /**
  *
  * Generate a callgraph from function name visible with MermaidJS
@@ -17,11 +22,10 @@
  * windbg> !callgraph
  */
 
-"use strict";
-
-const log = x => host.diagnostics.debugLog(x + "\n");
+const log = x => host.diagnostics.debugLog(`${x}\n`);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
+const sizeof = x => host.evaluateExpression(`sizeof(${x})`);
+const  u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
@@ -29,9 +33,9 @@ const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else return host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.Kernel[r]; }
-function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16)).First(); }
+function GetSymbolFromAddress(x){ return system(`.printf "%y", ${x.toString(16)}`).First(); }
 
-var g_OutfileName ;
+var g_OutfileName;
 
 
 /**
@@ -80,16 +84,16 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address)
 
     for( let BasicBlock of BasicBlocks )
     {
-        let s1 = Address.toString(16);
-        let s2 = BasicBlock.StartAddress.toString(16);
-        let s3 = BasicBlock.EndAddress.toString(16);
+        //let s1 = Address.toString(16);
+        //let s2 = BasicBlock.StartAddress.toString(16);
+        //let s3 = BasicBlock.EndAddress.toString(16);
         //log(`${i} ${s1} in [${s2}, ${s3}[`);
         if(BasicBlock.StartAddress.compareTo(Address) <= 0 && BasicBlock.EndAddress.compareTo(Address) > 0)
         {
             return i;
         }
 
-        i = i + 1;
+        i++;
     }
 
     return undefined;
