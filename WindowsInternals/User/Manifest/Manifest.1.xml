@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionPackages Version="1.0.0.0" Compression="none">
+    <ExtensionPackage>
+        <Name>EnvVars</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Get the environment variables.</Description>
+        <Components>
+            <ScriptComponent Name="EnvVars" Type="Engine" File="..\..\..\EnvVars.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="User" />
+                    </TriggerSet>
+                </LoadTriggers>
+
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Environment"/>
+                </ObjectExtensionList>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+</ExtensionPackages>

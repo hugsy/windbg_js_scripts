@@ -81,6 +81,13 @@ function initializeScript()
     //
     // Alias the function to WinDBG
     //
-    log("[+] Creating the variable `ServiceTable` for the SSDT...");
-    return [new host.functionAlias(ShowSsdtTable, "ServiceTable")];
+    log("[+] Creating the variable `ssdt` for the SSDT...");
+    return [
+        new host.apiVersionSupport(1, 3),
+
+        new host.functionAlias(
+            ShowSsdtTable,
+            "ssdt"
+        ),
+    ];
 }

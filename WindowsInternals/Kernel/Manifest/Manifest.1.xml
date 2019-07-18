@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionPackages Version="1.0.0.0" Compression="none">
+    <ExtensionPackage>
+        <Name>GetSsdtTable</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Get the SSDT as WinDBG DDM array.</Description>
+        <Components>
+            <ScriptComponent Name="GetSsdtTable" Type="Engine" File="..\..\..\GetSsdtTable.js" FilePathKind="RepositoryRelative">
+
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+
+                <FunctionAliases>
+                    <FunctionAlias Name="ssdt">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!ssdt]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Get the SSDT as WinDBG DDM array.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+</ExtensionPackages>

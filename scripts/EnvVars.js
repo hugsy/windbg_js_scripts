@@ -48,17 +48,21 @@ function *GetEnvironmentVariables()
             break;
         }
 
+        let Env = undefined;
+
         if (env.indexOf("="))
         {
             let p = env.split("=");
-            var Env = new EnvironmentVariable(addr, p[0], p[1]);
+            Env = new EnvironmentVariable(addr, p[0], p[1]);
         }
         else
         {
-            var Env = new EnvironmentVariable(addr, env, "");
+            Env = new EnvironmentVariable(addr, env, "");
         }
 
-        yield (Env);
+        if(Env !== undefined)
+            yield (Env);
+
         off += (env.length+1)*2;
     }
 }
@@ -80,11 +84,12 @@ class ModelParent
 function initializeScript()
 {
     return [
+        new host.apiVersionSupport(1, 3),
+
         new host.namedModelParent(
             ModelParent,
             'Debugger.Models.Process.Environment'
         ),
-        new host.apiVersionSupport(1, 3),
     ];
 }
 
