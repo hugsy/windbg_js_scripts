@@ -1,3 +1,7 @@
+/// <reference path="JSProvider.d.ts" />
+"use strict";
+
+
 /**
  * Browse through Big Pool chunks easily
  *
@@ -5,8 +9,6 @@
  * kd> .scriptload z:\windbg_js_scripts\bigpool.js
  * kd> dx @$BigPool().Where( p => p.Tag == "ThNm" )
  */
-
-"use strict";
 
 const log = x => host.diagnostics.debugLog(x + "\n");
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
@@ -181,11 +183,12 @@ function BigPoolIterator()
  */
 function initializeScript()
 {
-    let CommandName = "BigPools";
-    log("[+] Adding command '" + CommandName + "'");
+    let CommandName = "BigPool";
+    log("[+] Adding function '" + CommandName + "'");
 
     return [
-        new host.functionAlias(BigPoolIterator, CommandName)
+        new host.functionAlias(BigPoolIterator, CommandName),
+        new host.apiVersionSupport(1, 3),
     ];
 }
 
