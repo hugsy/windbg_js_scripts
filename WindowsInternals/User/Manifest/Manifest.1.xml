@@ -5,7 +5,7 @@
         <Version>1.0.0.0</Version>
         <Description>Get the environment variables.</Description>
         <Components>
-            <ScriptComponent Name="EnvVars" Type="Engine" File="..\..\..\EnvVars.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="EnvVars" Type="Engine" File="..\..\..\scripts\EnvVars.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="User" />

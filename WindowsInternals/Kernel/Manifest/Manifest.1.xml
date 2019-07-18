@@ -5,7 +5,7 @@
         <Version>1.0.0.0</Version>
         <Description>Get the SSDT as WinDBG DDM array.</Description>
         <Components>
-            <ScriptComponent Name="GetSsdtTable" Type="Engine" File="..\..\..\GetSsdtTable.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="GetSsdtTable" Type="Engine" File="..\..\..\scripts\GetSsdtTable.js" FilePathKind="RepositoryRelative">
 
                 <LoadTriggers>
                     <TriggerSet>
