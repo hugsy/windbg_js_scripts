@@ -26,7 +26,7 @@ Every time WinDbg loads, the galleries will be loaded:
 kd> dx -r1 Debugger.State.ExtensionGallery.ExtensionRepositories
 Debugger.State.ExtensionGallery.ExtensionRepositories
 [...]
-    [0x1]            : WindowsInternalsKernelGallery
+    [0x1]            : hugsysgallery
 ```
 
 

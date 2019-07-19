@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionPackages Version="1.0.0.0" Compression="none">
+    <!--
+    Ke scripts  (loadtrigger -> kernel)
+    -->
+    <ExtensionPackage>
+        <Name>GetSsdtTable</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Get the SSDT as WinDBG DDM array.</Description>
+        <Components>
+            <ScriptComponent Name="GetSsdtTable" Type="Engine" File="..\scripts\GetSsdtTable.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="ssdt">
+                        <AliasItem>
+                            <Syntax>
+<![CDATA[!ssdt
+or
+dx @$ssdt()]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Get the SSDT as WinDBG DDM array.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>BigPool</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Browse through Big Pool chunks easily via LINQ</Description>
+        <Components>
+            <ScriptComponent Name="BigPool" Type="Engine" File="..\scripts\BigPool.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="BigPool">
+                        <AliasItem>
+                            <Syntax>
+<![CDATA[!BigPool
+or
+dx @$BigPool()]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Browse through Big Pool chunks easily via LINQ]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>VadExplorer</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Explore VADs of a process  via LINQ</Description>
+        <Components>
+            <ScriptComponent Name="VadExplorer" Type="Engine" File="..\scripts\VadExplorer.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="KernelObject"/>
+                </ObjectExtensionList>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>ObjectExplorer</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Explore objects from nt!ObpRootDirectoryObject directly from WinDbg via LINQ (WinObj-lie).</Description>
+        <Components>
+            <ScriptComponent Name="ObjectExplorer.js" Type="Engine" File="..\scripts\ObjectExplorer.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Objects"/>
+                </ObjectExtensionList>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>GetSiloMonitors</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Enumerate all Silo Monitors</Description>
+        <Components>
+            <ScriptComponent Name="GetSiloMonitors" Type="Engine" File="..\scripts\GetSiloMonitors.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="SiloMonitors">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!SiloMonitors]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Dumps all the silo monitors]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>GetInterruptDescriptorTable</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Get the Interrupt Descriptor Table as WinDBG convience array.</Description>
+        <Components>
+            <ScriptComponent Name="GetInterruptDescriptorTable" Type="Engine" File="..\scripts\GetInterruptDescriptorTable.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="Idt">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!Idt [IntNum]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[With no argument, dumps the interrupt table. When provided an index, dumps the entry.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>EnumModules</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Enumerate modules from nt!PsLoadedModuleList.</Description>
+        <Components>
+            <ScriptComponent Name="EnumModules" Type="Engine" File="..\scripts\EnumModules.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="LoadedModules">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!LoadedModules]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Enumerate modules from nt!PsLoadedModuleList.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+
+    <ExtensionPackage>
+        <Name>EnvVars</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Get the environment variables a usermode process.</Description>
+        <Components>
+            <ScriptComponent Name="EnvVars" Type="Engine" File="..\scripts\EnvVars.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="User" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Environment"/>
+                </ObjectExtensionList>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>EnumDlls</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Enumerate UM modules for the currently debugged process.</Description>
+        <Components>
+            <ScriptComponent Name="EnumDlls" Type="Engine" File="..\scripts\EnumDlls.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="User" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="LoadedDlls">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!LoadedDlls]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Enumerate UM modules for the currently debugged process.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                    <FunctionAlias Name="checksec">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!checksec]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Checks the security properties of the images loaded.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Dlls"/>
+                </ObjectExtensionList>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+
+    <ExtensionPackage>
+        <Name>CallGraph</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Generate a callgraph from function name visible with MermaidJS.</Description>
+        <Components>
+            <ScriptComponent Name="CallGraph" Type="Engine" File="..\scripts\CallGraph.js" FilePathKind="RepositoryRelative">
+                <FunctionAliases>
+                    <FunctionAlias Name="callgraph">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!callgraph [ADDRESS]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Generate a callgraph from ADDRESS. With no argument, it uses $pc]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>TraceFunctions</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Trace functions and dumps its argument(s) at runtime.</Description>
+        <Components>
+            <ScriptComponent Name="TraceFunction" Type="Engine" File="..\scripts\TraceFunctions.js" FilePathKind="RepositoryRelative">
+                <FunctionAliases>
+                    <FunctionAlias Name="trace">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!trace "SYMBOL_OR_ADDRESS"[, NUM_ARG]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Trace given function]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+
+</ExtensionPackages>

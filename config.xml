@@ -20,25 +20,15 @@ Then save the config with
     <Namespace Name="Extensions">
         <Setting Name="ExtensionRepository" Type="VT_BSTR" Value="Implicit"></Setting>
         <Namespace Name="ExtensionRepositories">
-
         <!--
-        Windows Internals Kernel JS scripts
+        WinDbg JS scripts
         -->
-        <Namespace Name="Windows Internals - Kernel Gallery">
+        <Namespace Name="hugsy's gallery">
             <Setting Name="Id" Type="VT_BSTR" Value="8402a3c0-36cf-4d03-bb34-1933fb4afaa0"></Setting>
-            <Setting Name="LocalCacheRootFolder" Type="VT_BSTR" Value="Z:\windbg_js_scripts\WindowsInternals\Kernel\Manifest"></Setting>
+            <Setting Name="LocalCacheRootFolder" Type="VT_BSTR" Value="z:\windbg_js_scripts\Manifest"></Setting>
             <Setting Name="IsEnabled" Type="VT_BOOL" Value="true"></Setting>
+            <Setting Name="Url" Type="VT_BSTR" Value="https://github.com/hugsy/windbg_js_scripts"></Setting>
         </Namespace>
-
-        <!--
-        Windows Internals User JS scripts
-        -->
-        <Namespace Name="Windows Internals - User Gallery">
-            <Setting Name="Id" Type="VT_BSTR" Value="2467dd7b-515b-444d-8c2b-f73582c57577"></Setting>
-            <Setting Name="LocalCacheRootFolder" Type="VT_BSTR" Value="Z:\Code\windbg_js_scripts\WindowsInternals\User\Manifest"></Setting>
-            <Setting Name="IsEnabled" Type="VT_BOOL" Value="true"></Setting>
-        </Namespace>
-
     </Namespace>
   </Namespace>
 </Settings>

@@ -7,9 +7,6 @@
  *
  * Generate a callgraph from function name visible with MermaidJS
  *
- * Note for people without a sense of humor:
- * This script was made as a troll following this (https://twitter.com/aionescu/status/1052385986045345794)
- * and never as a replacement to IDA
  *
  * Usage
  * windbg> .scriptload \\ph0ny\code\windbg_js_scripts\CallGraph.js

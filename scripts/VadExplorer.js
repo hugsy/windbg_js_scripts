@@ -284,6 +284,7 @@ function initializeScript()
     //log("[+] Extending EPROCESS with Vads property...");
 
     return [
+        new host.apiVersionSupport(1, 3),
         new host.typeSignatureExtension(ProcessVads,  "_EPROCESS"),
     ];
 }

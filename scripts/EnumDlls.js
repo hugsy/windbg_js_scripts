@@ -7,7 +7,7 @@
  *
  * Use as:
  * 0:000> .scriptload \path\to\EnumDlls.js
- * 0:000> dx -g -r1 @$LoadedDlls().Select( d => new { Name = (wchar_t*)(d.FullDllName.Buffer) } )
+ * 0:000> dx -g -r1 @$LoadedPeImages().Select( d => new { Name = (wchar_t*)(d.FullDllName.Buffer) } )
  *
  */
 
@@ -16,8 +16,8 @@
 
 const log = x => host.diagnostics.debugLog(x + "\n");
 
-function IsKd(){ return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget != 0; }
-function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
+function IsKd(){ return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
+function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize === 8;}
 
 
 const IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE = 0x0040;
@@ -40,7 +40,7 @@ const g_FlagsToCheck = {
 /**
  *
  */
-function *LoadedDlls()
+function *LoadedPeImages()
 {
     // Get the PEB and Loader info from the the pseudo-registers
     let peb = host.namespace.Debugger.State.PseudoRegisters.General.peb;
@@ -80,7 +80,7 @@ function CheckSec(ImagePath, Dll)
         }
     }
 
-    return `- Image : "${ImagePath}"\n\tFlags : ${flags.join("|")}`;
+    return `- Image : "${ImagePath} (base 0x${DosHeader.address.toString(16)})"\n\tFlags : ${flags.join("|")}`;
 }
 
 
@@ -88,7 +88,7 @@ function CheckSec(ImagePath, Dll)
 /**
  *
  */
-function invokeScript()
+function checksec()
 {
     if (IsKd())
     {
@@ -96,7 +96,7 @@ function invokeScript()
         return;
     }
 
-    for( let Dll of LoadedDlls() )
+    for( let Dll of LoadedPeImages() )
     {
         var Name = host.memory.readWideString(Dll.FullDllName.Buffer.address);
         log(CheckSec(Name, Dll));
@@ -107,12 +107,21 @@ function invokeScript()
 /**
  *
  */
-class SessionModelParent
+class EnumDlls
 {
     get Dlls()
     {
-        return LoadedDlls();
+        return LoadedPeImages();
     }
+}
+
+
+/**
+ *
+ */
+function invokeScript()
+{
+    return checksec();
 }
 
 
@@ -121,17 +130,24 @@ class SessionModelParent
  */
 function initializeScript()
 {
-    log("[+] Adding the command `checksec`...");
+    //log("[+] Adding the command `LoadedPeImages`...");
     return [
+        new host.apiVersionSupport(1, 3),
+
         new host.functionAlias(
-            LoadedDlls,
+            LoadedPeImages,
+            "LoadedDlls"
+        ),
+
+        new host.functionAlias(
+            checksec,
             "checksec"
         ),
+
         new host.namedModelParent(
-            SessionModelParent,
+            EnumDlls,
             'Debugger.Models.Process'
         ),
-        new host.apiVersionSupport(1, 3)
     ];
 }
 
