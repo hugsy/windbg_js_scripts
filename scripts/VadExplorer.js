@@ -121,9 +121,9 @@ class Vad
         //
         this.__VadType = this.VadObject.Core.u.VadFlags.VadType;
         this.VpnStart = MakeQword(this.VadObject.Core.StartingVpnHigh, this.VadObject.Core.StartingVpn);
-        this.VaStart = this.VpnStart.bitwiseShiftLeft(12);
+        this.VaStart = this.VpnStart.bitwiseShiftLeft(12).bitwiseOr(0xfff);
         this.VpnEnd = MakeQword(this.VadObject.Core.EndingVpnHigh, this.VadObject.Core.EndingVpn);
-        this.VaEnd = this.VpnEnd.bitwiseShiftLeft(12);
+        this.VaEnd = this.VpnEnd.bitwiseShiftLeft(12).bitwiseOr(0xfff);
 
         this.Size = host.parseInt64(this.VaEnd - this.VaStart);
     }

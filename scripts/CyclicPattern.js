@@ -1,3 +1,8 @@
+///
+/// <reference path="JSProvider.d.ts" />
+///
+"use strict";
+
 /**
  * Generate a de Bruijn cyclic sequence, and/or search through it
  *
@@ -12,34 +17,34 @@
  * 0:000> dx Debugger.Utility.CyclicPattern.Search("61616161616162", 256)
  * Debugger.Utility.CyclicPattern.Search("61616161616162", 256) : 0x2
  */
+const log  = x => host.diagnostics.debugLog(`${x}\n`);
+const ok   = x => log(`[+] ${x}`);
+const warn = x => log(`[!] ${x}`);
 
-"use strict";
-
-const log = x => host.diagnostics.debugLog(x + "\n");
+var DEFAULT_LENGTH = 256;
 
 
 /**
- * Roughtly copy/pasted from gef
+ * Roughly copy/pasted from gef
  */
 class CyclicPattern
 {
 
-    constructor(x)
+    constructor()
     {
-        this.length = 256;
+
     }
 
 
-    Create(length, cycle = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize)
+    static __Create(length, cycle = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize)
     {
-        //log("Pattern.Create(length="+length+", cycle="+cycle+")");
         var a = [];
         var charset = "abcdefghijklmnopqrstuvwxyz";
         var k = charset.length;
         var n = cycle;
         var res = [];
 
-        this.length = length;
+        DEFAULT_LENGTH = length;
 
         for (var i = 0; i < k * n; i++)
         {
@@ -84,23 +89,65 @@ class CyclicPattern
     };
 
 
-    __HexDecode(str1)
+    static __HexDecode(str1)
     {
-        var hex = /*host.parseInt64(str1, 16);//*/ str1.toString(16);
-        var a = [];
-        for (var n = 0; n < hex.length; n += 2)
-        {
+        let hex = host.parseInt64(str1, 16).toString(16);
+        let a = [];
+        for (let n = 0; n < hex.length; n += 2)
             a.push( String.fromCharCode(parseInt(hex.substr(n, 2), 16)) );
-        }
+
         return a.join('');
     }
 
 
-    Search(pattern, length)
+    static __GetPatternAsAddress(patt)
     {
-        var decoded = this.__HexDecode(pattern);
-        var sequence = this.Create(length);
-        return sequence.indexOf(decoded);
+        let pattern;
+
+        if (typeof patt != 'string')
+        {
+            // if it's a number, represent it as a string
+            pattern = patt.toString();
+        }
+        else
+        {
+            // if it's a string
+            if(patt.startsWith("0x"))
+            {
+                // is it an hex address inside -> sanitize it
+                pattern = patt.replace("`", "" );
+            }
+            else
+            {
+                // is it a symbol / register -> resolve it
+                pattern = host.evaluateExpression(`${patt}`);
+            }
+        }
+        return pattern;
+    }
+
+
+    Create(length, cycle = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize)
+    {
+        return CyclicPattern.__Create(length, cycle);
+    }
+
+
+    Search(pattern, length = undefined)
+    {
+        if(length === undefined)
+            length = DEFAULT_LENGTH;
+
+        pattern = CyclicPattern.__GetPatternAsAddress(pattern);
+
+        let decoded = CyclicPattern.__HexDecode(pattern);
+        let sequence = CyclicPattern.__Create(length);
+
+        let index = sequence.indexOf(decoded);
+        if (index >=0 )
+            ok(`Found pattern '${pattern}' at offset ${index}`);
+        else
+            warn(`Not found`);
     }
 
 
@@ -116,12 +163,12 @@ class CyclicPattern
             Create:
             {
                 PreferShow: true,
-                Help: "Create(length [, cycle]) - Create a DeBruijn sequence of specified length."
+                Help: "Create(length[, cycle]) - Create a DeBruijn sequence of specified length."
             },
 
             Search: {
                 PreferShow: true,
-                Help: "Search(pattern, length) - Search a hexadecimal pattern inside a DeBruijn sequence"
+                Help: "Search(pattern[, length]) - Search a hexadecimal pattern inside a DeBruijn sequence"
           },
         };
     }

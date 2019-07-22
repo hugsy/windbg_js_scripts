@@ -17,10 +17,7 @@
                 <FunctionAliases>
                     <FunctionAlias Name="ssdt">
                         <AliasItem>
-                            <Syntax>
-<![CDATA[!ssdt
-or
-dx @$ssdt()]]>
+                            <Syntax><![CDATA[!ssdt]]>
                             </Syntax>
                             <Description>
                                 <![CDATA[Get the SSDT as WinDBG DDM array.]]>
@@ -46,10 +43,7 @@ dx @$ssdt()]]>
                 <FunctionAliases>
                     <FunctionAlias Name="BigPool">
                         <AliasItem>
-                            <Syntax>
-<![CDATA[!BigPool
-or
-dx @$BigPool()]]>
+                            <Syntax><![CDATA[!BigPool]]>
                             </Syntax>
                             <Description>
                                 <![CDATA[Browse through Big Pool chunks easily via LINQ]]>
@@ -179,6 +173,9 @@ dx @$BigPool()]]>
     </ExtensionPackage>
 
 
+    <!--
+    Um scripts  (loadtrigger -> user)
+    -->
     <ExtensionPackage>
         <Name>EnvVars</Name>
         <Version>1.0.0.0</Version>
@@ -238,6 +235,9 @@ dx @$BigPool()]]>
     </ExtensionPackage>
 
 
+    <!--
+    generic scripts
+    -->
     <ExtensionPackage>
         <Name>CallGraph</Name>
         <Version>1.0.0.0</Version>
@@ -278,6 +278,19 @@ dx @$BigPool()]]>
                         </AliasItem>
                     </FunctionAlias>
                 </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>CyclicPattern</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Generate a de Bruijn cyclic sequence, and/or search through it.</Description>
+        <Components>
+            <ScriptComponent Name="CyclicPattern" Type="Engine" File="..\scripts\CyclicPattern.js" FilePathKind="RepositoryRelative">
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Utility" Namespace="Debugger.Models.Utility" Property="CyclicPattern"/>
+                </ObjectExtensionList>
             </ScriptComponent>
         </Components>
     </ExtensionPackage>
