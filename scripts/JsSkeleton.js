@@ -14,6 +14,8 @@ const log  = x => host.diagnostics.debugLog(`${x}\n`);
 const ok   = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err  = x => log(`[-] ${x}`);
+const hex  = x => x.toString(16);
+const i64  = x => host.parseInt64(x);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const sizeof = x => host.evaluateExpression(`sizeof(${x})`);
 const  u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
