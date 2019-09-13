@@ -1,6 +1,8 @@
 ///
 /// <reference path="JSProvider.d.ts" />
 ///
+/// @ts-check
+///
 "use strict";
 
 
