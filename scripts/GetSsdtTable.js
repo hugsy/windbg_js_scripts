@@ -23,15 +23,20 @@ function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16
 
 class SsdtEntry
 {
-    constructor(addr, name)
+    constructor(addr, name, argnum)
     {
         this.Address = addr
         this.Name = name;
+        this.NumberOfArgumentsOnStack = argnum;
     }
+
 
     toString()
     {
-        return `(${this.Address.toString(16)}) ${this.Name}`;
+        let str = `(${this.Address.toString(16)}) ${this.Name}`;
+        if (IsX64() && this.NumberOfArgumentsOnStack)
+            str += ` StackArgNum=${this.NumberOfArgumentsOnStack}`;
+        return str;
     }
 }
 
@@ -60,18 +65,20 @@ function *ShowSsdtTable()
     let OffsetTable = FetchSsdtOffsets();
     for (var i = 0 ; i < OffsetTable.Offsets.Count(); i++)
     {
-        var Address;
+        let Address, ArgNum = 0;
 
         if (IsX64())
         {
             Address = OffsetTable.Base.add(OffsetTable.Offsets[i] >> 4);
+            ArgNum = OffsetTable.Offsets[i] & 3;
         }
         else
         {
             Address = OffsetTable.Base.add(OffsetTable.Offsets[i]);
         }
+
         var Symbol = GetSymbolFromAddress(Address);
-        yield new SsdtEntry(Address, Symbol) ;
+        yield new SsdtEntry(Address, Symbol, ArgNum);
     }
 }
 
