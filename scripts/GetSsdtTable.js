@@ -16,6 +16,7 @@
 const log = x => host.diagnostics.debugLog(x + "\n");
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const Dereference = addr => host.evaluateExpression("(unsigned int*)0x" + addr.toString(16)).dereference();
+const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 
 function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
 function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16)).First(); }
@@ -46,12 +47,23 @@ class SsdtEntry
  */
 function FetchSsdtOffsets()
 {
-    var SsdtTable = host.getModuleSymbolAddress("nt", "KeServiceDescriptorTable");
-    var NumberOfSyscalls = Dereference( host.getModuleSymbolAddress("nt", "KiServiceLimit") );
     var SsdtOffsetTable = [];
-    var expr = "**(unsigned int(**)[" + NumberOfSyscalls.toString() + "])0x" + SsdtTable.toString(16);
-    SsdtOffsetTable["Offsets"] = host.evaluateExpression(expr);
-    SsdtOffsetTable["Base"] = host.getModuleSymbolAddress("nt", "KiServiceTable");
+    if(IsX64())
+    {
+        let SsdtTable = host.getModuleSymbolAddress("nt", "KeServiceDescriptorTable");
+        let NumberOfSyscalls = u32( host.getModuleSymbolAddress("nt", "KiServiceLimit") );
+        let expr = "**(unsigned int(**)[" + NumberOfSyscalls.toString() + "])0x" + SsdtTable.toString(16);
+        SsdtOffsetTable["Offsets"] = host.evaluateExpression(expr);
+        SsdtOffsetTable["Base"] = host.getModuleSymbolAddress("nt", "KiServiceTable");
+    }
+    else
+    {
+        let SsdtTable = host.getModuleSymbolAddress("nt", "_KeServiceDescriptorTable");
+        let NumberOfSyscalls = u32( host.getModuleSymbolAddress("nt", "_KiServiceLimit") );
+        let expr = "**(unsigned int(**)[" + NumberOfSyscalls.toString() + "])0x" + SsdtTable.toString(16);
+        SsdtOffsetTable["Offsets"] = host.evaluateExpression(expr);
+        SsdtOffsetTable["Base"] = host.getModuleSymbolAddress("nt", "_KiServiceTable");        
+    }
     return SsdtOffsetTable;
 }
 
@@ -74,7 +86,7 @@ function *ShowSsdtTable()
         }
         else
         {
-            Address = OffsetTable.Base.add(OffsetTable.Offsets[i]);
+            Address = OffsetTable.Offsets[i];
         }
 
         var Symbol = GetSymbolFromAddress(Address);
