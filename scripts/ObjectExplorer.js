@@ -5,8 +5,11 @@
  */
 "use strict";
 
+const log  = x => host.diagnostics.debugLog(`${x}\n`);
+const ok   = x => log(`[+] ${x}`);
+const warn = x => log(`[!] ${x}`);
+const err  = x => log(`[-] ${x}`);
 
-const log = x => host.diagnostics.debugLog(x + "\n");
 const getHeader = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
 const getName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectName
 const getTypeName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectType
@@ -122,7 +125,7 @@ class WinObj
                     //
                     // Move to the next entry in the chain
                     //
-                    if (chainEntry.ChainLink.isNull === true)
+                    if (chainEntry.ChainLink.isNull)
                     {
                         break;
                     }
