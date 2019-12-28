@@ -68,7 +68,7 @@ function *KdEnumerateProcessCallbacks(_type)
 {
     if(!IsKd())
     {
-        err("must be in kd");
+        err("KdOnly");
         return;
     }
 
@@ -80,7 +80,7 @@ function *KdEnumerateProcessCallbacks(_type)
     while (true)
     {
         let entry = poi(CallbackTable.add(i));
-        if(entry.compareTo(0)==0)
+        if(entry.compareTo(0) == 0)
             break;
 
         let _type = entry.bitwiseAnd(0xf);
@@ -93,13 +93,13 @@ function *KdEnumerateProcessCallbacks(_type)
 
 function *KdEnumerateCallbacks()
 {
-    let ProcessCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateProcessNotifyRoutine`);
-    ok(`nt!PspCreateProcessNotifyRoutine is at 0x${ProcessCallbackTable.toString(16)}`);
+    //let ProcessCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateProcessNotifyRoutine`);
+    //ok(`nt!PspCreateProcessNotifyRoutine is at 0x${ProcessCallbackTable.toString(16)}`);
     for (const v of KdEnumerateProcessCallbacks("Process"))
         yield v;
 
-    let ThreadCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateThreadNotifyRoutine`);
-    ok(`nt!PspCreateThreadNotifyRoutine is at 0x${ThreadCallbackTable.toString(16)}`);
+    //let ThreadCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateThreadNotifyRoutine`);
+    //ok(`nt!PspCreateThreadNotifyRoutine is at 0x${ThreadCallbackTable.toString(16)}`);
     for (const v of KdEnumerateProcessCallbacks("Thread"))
         yield v;
 }
