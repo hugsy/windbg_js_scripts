@@ -2,6 +2,7 @@
  *
  * Dynamic dumping of known object types of Windows (_OBJECT_HEADER->Type)
  *
+ * OBSOLETE: Use ObjectExplorer.js
  */
 "use strict";
 
