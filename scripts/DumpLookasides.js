@@ -96,7 +96,7 @@ function Hex2Ascii(hexx)
 /**
  *
  */
-class PoolLookasideItem
+class LookasideItem
 {
     constructor(obj)
     {
@@ -149,12 +149,13 @@ class PoolLookasideItem
 /**
  *
  */
-class PoolLookasideList
+class LookasideList
 {
     constructor(symbol)
     {
-        this.__module = symbol.split("!")[0];
-        this.__symbol = symbol.split("!")[1];
+        let parts = symbol.split("!");
+        this.__module = parts[0];
+        this.__symbol = parts[1];
         this.__item_processed = 0;
     }
 
@@ -172,7 +173,7 @@ class PoolLookasideList
             let LookAsideHead = host.createPointerObject(
                 LookAsideListHead.address,
                 "nt",
-                "_GENERAL_LOOKASIDE *"
+                "_GENERAL_LOOKASIDE*"
             );
 
             let LookAsideIterator = host.namespace.Debugger.Utility.Collections.FromListEntry(
@@ -181,9 +182,10 @@ class PoolLookasideList
                 "ListEntry"
             );
 
+
             for( let item of LookAsideIterator)
             {
-                yield new PoolLookasideItem(item);
+                yield new LookasideItem(item);
                 this.__item_processed += 1;
             }
         }
@@ -223,7 +225,7 @@ function *GetAllLookAsideIterator(arg)
 
     for(let list of lists)
     {
-        for (let p of new PoolLookasideList(list))
+        for (let p of new LookasideList(list))
         {
             yield p;
         }
