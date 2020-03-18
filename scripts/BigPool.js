@@ -44,12 +44,27 @@ const _POOL_TYPES = {
 };
 
 
+function PoolTypeAsBitmaskString(val)
+{
+    let res = [];
+    for( let _type in _POOL_TYPES )
+    {
+        if( _type == val )
+            res.push(_POOL_TYPES[_type]);
+        else if( _type != 0 && (val & _type) == _type)
+            res.push(_POOL_TYPES[_type]);
+    }
+    if (res.length == 0)
+        return null;
+    return res.join("|");
+}
+
+
 function Hex2Ascii(hexx)
 {
     var hex = hexx.toString(16);
     var str = '';
-    for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2)
-        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+    for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2) str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
     return str.split("").reverse().join("");
 }
 
@@ -96,8 +111,13 @@ class BigPool
      */
     get Type()
     {
-        return _POOL_TYPES[this.__Type] || this.__Type.toString(16);
+        let _type = this.__Type;
+        let _res = PoolTypeAsBitmaskString(_type);
+        if( _res  === null )
+            return _type.toString(16);
+        return _res;
     }
+
 
     /**
      *

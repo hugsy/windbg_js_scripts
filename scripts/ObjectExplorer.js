@@ -1,9 +1,12 @@
+/// <reference path="JSProvider.d.ts" />
+"use strict";
+
 /**
  *
  * Explore objects from nt!ObpRootDirectoryObject
  *
  */
-"use strict";
+
 
 const log  = x => host.diagnostics.debugLog(`${x}\n`);
 const ok   = x => log(`[+] ${x}`);
@@ -79,7 +82,7 @@ class WinObj
      */
     toString()
     {
-        let text = this.Parent.toString() + "\\" + this.Name;
+        let text = `${this.Parent.toString()}\\${this.Name}`;
         return text.replace("\\\\", "\\");
     }
 
