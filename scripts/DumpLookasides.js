@@ -1,4 +1,4 @@
-/// <reference path="JSProvider.d.ts" />
+/// <reference path="../extra/JSProvider.d.ts" />
 /// @ts-check
 "use strict";
 
@@ -98,9 +98,11 @@ function Hex2Ascii(hexx)
  */
 class LookasideItem
 {
-    constructor(obj)
+    constructor(obj, name)
     {
         this.RawObject = obj;
+        this.Name = `${name}LookasideItem`;
+        this.Address = this.RawObject.address;
     }
 
 
@@ -141,7 +143,7 @@ class LookasideItem
      */
     toString()
     {
-        return `LookasideItem(Type=${this.Type}, Size=${this.Size}, Tag="${this.Tag}" (0x${this.RawObject.Tag.toString(16)}), Object=0x${this.RawObject.address.toString(16)})`;
+        return `${this.Name}(Type=${this.Type}, Size=${this.Size}, Tag="${this.Tag}" (0x${this.RawObject.Tag.toString(16)}))`;
     }
 }
 
@@ -151,12 +153,13 @@ class LookasideItem
  */
 class LookasideList
 {
-    constructor(symbol)
+    constructor(symbol, name)
     {
         let parts = symbol.split("!");
         this.__module = parts[0];
         this.__symbol = parts[1];
         this.__item_processed = 0;
+        this.__name = name[0].toUpperCase() + name.toLowerCase().slice(1);
     }
 
 
@@ -185,7 +188,7 @@ class LookasideList
 
             for( let item of LookAsideIterator)
             {
-                yield new LookasideItem(item);
+                yield new LookasideItem(item, this.__name);
                 this.__item_processed += 1;
             }
         }
@@ -225,7 +228,7 @@ function *GetAllLookAsideIterator(arg)
 
     for(let list of lists)
     {
-        for (let p of new LookasideList(list))
+        for (let p of new LookasideList(list, arg))
         {
             yield p;
         }

@@ -1,4 +1,4 @@
-/// <reference path="JSProvider.d.ts" />
+/// <reference path="../extra/JSProvider.d.ts" />
 "use strict";
 
 
@@ -15,7 +15,11 @@ const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const sizeof = x => host.evaluateExpression("sizeof("+x+")");
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
+
+function open(x) { return host.namespace.Debugger.Utility.FileSystem.OpenFile(x); }
+function readlines(x) { return host.namespace.Debugger.Utility.FileSystem.CreateTextReader(x).Readlines(); }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
+
 
 const _POOL_TYPES = {
     0 : "NonPagedPool",
@@ -67,6 +71,53 @@ function Hex2Ascii(hexx)
     for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2) str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
     return str.split("").reverse().join("");
 }
+
+
+
+const POOLTAG_FILEPATH = "D:\\Code\\windbg_js_scripts\\extra\\pooltag.txt";
+var g_PoolTag_Content = [];
+
+function GetTagInfo(TagName, RefreshCache = false)
+{
+    //
+    // use cached version
+    //
+    if(g_PoolTag_Content.length > 0 && !RefreshCache)
+    {
+        for(let entry of g_PoolTag_Content)
+        {
+            if(entry[0] == TagName)
+                return entry;
+        }
+
+        return undefined;
+    }
+
+    let file = open(POOLTAG_FILEPATH);
+    for(let line in readlines(file))
+    {
+        let trimmed = line.trim();
+
+        // skip empty line
+        if (trimmed.length == 0)
+            continue;
+
+        // skip comment
+        if (trimmed.toLowerCase().startsWith("rem"))
+            continue;
+
+        // split parts
+        let parts = trimmed.split(" - ", 2);
+        let _tag = parts[0].trim();
+        let _file = parts[1].trim();
+        let _desc = parts[2].trim();
+        g_PoolTag_Content.push( [_tag, _file, _desc] );
+    }
+    file.Close();
+
+    return GetTagInfo(TagName, false);
+}
+
 
 
 /**
@@ -124,7 +175,11 @@ class BigPool
      */
     get Tag()
     {
-        return Hex2Ascii(this.__Tag);
+        let txt = `'${Hex2Ascii(this.__Tag)}'`;
+        //let info = GetTagInfo(this.__Tag);
+        //if(info != undefined)
+        //    txt += ` (${info[2]})`
+        return txt;
     }
 
 
@@ -142,7 +197,7 @@ class BigPool
      */
     toString()
     {
-        return `BigPool(VA=${this.VirtualAddress.toString(16)}, Tag='${this.Tag}', Size=${this.Size}, Type=${this.Type})`;
+        return `BigPool(VA=${this.VirtualAddress.toString(16)}, Tag=${this.Tag}, Size=${this.Size}, Type=${this.Type})`;
     }
 }
 
