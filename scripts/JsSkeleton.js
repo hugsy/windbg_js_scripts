@@ -26,9 +26,10 @@ const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 
 function ptrsize(){ return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize; }
+function pagesize(){ return host.namespace.Debugger.State.PseudoRegisters.General.pagesize; }
 function IsX64(){ return ptrsize() === 8;}
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
-function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else return host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.Kernel[r]; }
+function $(r){ return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
 function GetSymbolFromAddress(x){ return system(`.printf "%y", ${x.toString(16)}`).First(); }
 function poi(x){ return IsX64() ? u64(x) : u32(x); }
 

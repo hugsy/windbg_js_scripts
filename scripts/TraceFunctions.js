@@ -1,6 +1,8 @@
 /**
  *
- * Define and assign a custom JS callback for a WinDbg breakpoint
+ * Test to define a custom function tracer in WinDbg JS. This is done by
+ * defining and assigning a custom JS callback for a WinDbg breakpoint.
+ *
  *
  * Use with
  * 0:000> .scriptload \path\to\TraceFunctions.js
@@ -21,9 +23,8 @@ const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 
 function IsX64() {return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize === 8;}
-function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget != 0; }
-function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else return host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.User[r]; }
-
+function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
+function $(r){ return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
 
 
 
@@ -34,25 +35,28 @@ function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else ret
  * @param {*} range
  * @param {*} comment
  */
-function PrintRegistersCallback64(loc, n, comment="")
+function PrintRegistersCallback64(loc, range, comment="")
 {
     let ptrsize = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize;
-    let regs = ["rcx", "rdx", "r8", "r9"];
-    let output = new Array();
-    let min_range = parseInt(range.split(":")[0]);
-    let max_range = parseInt(range.split(":")[1]);
+    const regs = ["rcx", "rdx", "r8", "r9"];
+    let output = []
+    let r = range.split(":");
+    let min_range = parseInt(r[0]);
+    let max_range = parseInt(r[1]);
 
     for( let i of [...Array(max_range).slice(min_range, max_range).keys()] )
     {
         let index = min_range + i;
-        if( index < 4)
+        if( index < regs.length)
         {
-            output.push(`arg[${index.toString()}]=${$(regs[index]).toString(16)}`);
+            let reg = regs[index];
+            output.push(`${reg}=${$(reg).toString(16)}`);
         }
         else
         {
-            let arg = u64($("rsp") + ptrsize*index);
-            output.push(`arg[${index.toString()}]=${arg.toString(16)}`);
+            let rsp = host.Int64($("rsp"));
+            let arg = u64(rsp.add(ptrsize*index));
+            output.push(`arg[${index}]=${arg.toString(16)}`);
         }
     }
 
@@ -71,7 +75,7 @@ function PrintRegistersCallback64(loc, n, comment="")
 function PrintRegistersCallback32(loc, range, comment="")
 {
     let ptrsize = host.namespace.Debugger.State.PseudoRegisters.General.ptrsize;
-    let output = new Array();
+    let output = [];
     let parts = range.split(":");
     let min_range = parseInt(parts[0]);
     let max_range = parseInt(parts[1]);
@@ -79,7 +83,7 @@ function PrintRegistersCallback32(loc, range, comment="")
     for( let i of [...Array(max_range).slice(min_range, max_range).keys()] )
     {
         let index = min_range + i;
-        let arg = u32($("esp") + ptrsize*index);
+        let arg = u32($("esp").add(ptrsize*index);
         output.push(`arg[${index.toString()}]=${arg.toString(16)}`);
     }
 
@@ -96,21 +100,6 @@ function PrintRegistersCallback32(loc, range, comment="")
  */
 function GetAddressFromSymbol(sym)
 {
-    //if (sym.indexOf("!") === -1)
-    //{
-    //    let default_modules = ["nt", "ntdll", "kernel32", "kernelbase"];
-    //    for (let mod of default_modules)
-    //    {
-    //        var res = host.getModuleSymbolAddress(mod, sym);
-    //        if (res !== undefined)
-    //        {
-    //            return res;
-    //        }
-    //    }
-    //}
-    // let parts = sym.split("!");
-    // return host.getModuleSymbolAddress(parts[0], parts[1]);  // doesn't work all the time, check why (TODO)
-
     let res = undefined;
     for (let line of system(`x ${sym}`))
     {
@@ -175,13 +164,18 @@ function PrintCallArguments(location, range, comment)
 /**
  * main()
  *
- * Example: Sets up a default tracer for
+ * Example: (if UM) sets up a default tracer for
  * VirtualAlloc(LPVOID lpAddress,SIZE_T dwSize,DWORD flAllocationType,DWORD flProtect);
  *
+ * or (if KM)
+ * ExAllocatePoolWithTag(POOL_TYPE PoolType, SIZE_T NumberOfBytes, ULONG Tag);
  */
 function invokeScript()
 {
-    PrintCallArguments('kernelbase!VirtualAlloc', 4);
+    if(!IsKd())
+        PrintCallArguments('kernelbase!VirtualAlloc', 4);
+    else
+        PrintCallArguments('nt!ExAllocatePoolWithTag', 3);
 }
 
 
