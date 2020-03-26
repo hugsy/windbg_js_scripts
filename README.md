@@ -1,9 +1,7 @@
 # WinDbg JavaScript Scripts
 
-Learning Windows Internals by debugging it...
 
-
-## Using as a WinDbg gallery
+## Install as a WinDbg gallery
 
  - Clone the repository
 ```
@@ -25,14 +23,17 @@ Every time WinDbg loads, the galleries will be loaded:
 ```
 kd> dx -r1 Debugger.State.ExtensionGallery.ExtensionRepositories
 Debugger.State.ExtensionGallery.ExtensionRepositories
-[...]
+    [0x0]            : UserExtensions
     [0x1]            : hugsysgallery
+    [0x2]            : overgallery
+    [0x3]            : LocalInstalled
 ```
 
 
-## Random links somewhat related:
+## Related links
 
+ - https://github.com/hugsy/defcon_27_windbg_workshop/blob/master/windbg_cheatsheet.md
+ - https://doar-e.github.io/blog/2017/12/01/debugger-data-model
  - https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/javascript-debugger-example-scripts
  - https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/native-objects-in-javascript-extensions
- - https://doar-e.github.io/blog/2017/12/01/debugger-data-model/
  - https://twitter.com/windbgtips
