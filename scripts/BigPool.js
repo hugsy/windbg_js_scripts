@@ -10,14 +10,14 @@
  * kd> dx @$BigPool().Where( p => p.Tag == "ThNm" )
  */
 
-const log = x => host.diagnostics.debugLog(x + "\n");
+const log = x => host.diagnostics.debugLog(`${x}\n`);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const sizeof = x => host.evaluateExpression("sizeof("+x+")");
+const sizeof = x => host.evaluateExpression(`sizeof(${x})`);
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 
 function open(x) { return host.namespace.Debugger.Utility.FileSystem.OpenFile(x); }
-function readlines(x) { return host.namespace.Debugger.Utility.FileSystem.CreateTextReader(x).Readlines(); }
+function readlines(x) { return host.namespace.Debugger.Utility.FileSystem.CreateTextReader(x).ReadLineContents(); }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 
 
@@ -74,48 +74,74 @@ function Hex2Ascii(hexx)
 
 
 
-const POOLTAG_FILEPATH = "D:\\Code\\windbg_js_scripts\\extra\\pooltag.txt";
+const POOLTAG_FILEPATH = "\\\\ph0ny\\Code\\windbg_js_scripts\\extra\\pooltag.txt";
 var g_PoolTag_Content = [];
 
-function GetTagInfo(TagName, RefreshCache = false)
+
+/**
+ * Returns the tag info corresponding to the given tag name
+ */
+function GetTagInfo(TagName)
 {
-    //
-    // use cached version
-    //
-    if(g_PoolTag_Content.length > 0 && !RefreshCache)
+    for(let entry of g_PoolTag_Content)
     {
-        for(let entry of g_PoolTag_Content)
-        {
-            if(entry[0] == TagName)
-                return entry;
-        }
-
-        return undefined;
+        //log(`${entry[0]} === ${TagName}?`);
+        if(entry[0] === TagName)
+            return entry;
     }
 
+    return undefined;
+}
+
+
+
+/**
+ * Refresh the tag info cache
+ */
+function RefreshPooltagCache()
+{
+    log(`caching content of ${POOLTAG_FILEPATH}, this might take a bit...`);
+    let res = false;
     let file = open(POOLTAG_FILEPATH);
-    for(let line in readlines(file))
+    try
     {
-        let trimmed = line.trim();
+        for(let line of readlines(file))
+        {
+            if (line === undefined || line.length === 0)
+                continue;
 
-        // skip empty line
-        if (trimmed.length == 0)
-            continue;
+            let trimmed = line.trim();
 
-        // skip comment
-        if (trimmed.toLowerCase().startsWith("rem"))
-            continue;
+            // skip empty trimmed lines
+            if (trimmed.length === 0)
+                continue;
 
-        // split parts
-        let parts = trimmed.split(" - ", 2);
-        let _tag = parts[0].trim();
-        let _file = parts[1].trim();
-        let _desc = parts[2].trim();
-        g_PoolTag_Content.push( [_tag, _file, _desc] );
+            // skip comments
+            if (trimmed.toLowerCase().startsWith("rem") || trimmed.startsWith("//"))
+                continue;
+
+            // split parts
+            let parts = trimmed.split(" - ", 3);
+            let _tag =  parts[0] != undefined ? parts[0].trim() : "";
+            let _file = parts[1] != undefined ? parts[1].trim() : "";
+            let _desc = parts[2] != undefined ? parts[2].trim() : "";
+            if (_tag.length === 0)
+                continue;
+
+            g_PoolTag_Content.push( [_tag, _file, _desc] );
+        }
+        res = true;
+        log(`done`);
     }
-    file.Close();
-
-    return GetTagInfo(TagName, false);
+    catch(e)
+    {
+        log(`exception ${e}`);
+    }
+    finally
+    {
+        file.Close();
+    }
+    return res;
 }
 
 
@@ -135,6 +161,22 @@ class BigPool
         this.__Tag = obj.Key;
         this.__Size = obj.NumberOfBytes;
         this.__Type = obj.PoolType;
+
+        // tag info
+        let __tagstr = Hex2Ascii(this.__Tag);
+        let __info = GetTagInfo(__tagstr);
+        if (__info != undefined)
+            this.TagInfo = {
+                Name: __tagstr,
+                BinaryName: __info[1],
+                Description: __info[2]
+            }
+        else
+            this.TagInfo = {
+                Name: __tagstr,
+                BinaryName: "",
+                Description: ""
+            }
     }
 
 
@@ -143,7 +185,6 @@ class BigPool
      */
     get VirtualAddress()
     {
-        //return this.__VirtualAddress.bitwiseAnd(0xfffffffffffffff0);
         return this.__VirtualAddress.bitwiseShiftRight(1).bitwiseShiftLeft(1);
     }
 
@@ -175,10 +216,10 @@ class BigPool
      */
     get Tag()
     {
-        let txt = `'${Hex2Ascii(this.__Tag)}'`;
-        //let info = GetTagInfo(this.__Tag);
-        //if(info != undefined)
-        //    txt += ` (${info[2]})`
+        let TagAscii = ``;
+        let txt = `'${this.TagInfo.Name}'`;
+        if(this.TagInfo.BinaryName !== "" || this.TagInfo.Description !== "")
+            txt += ` (${this.TagInfo.BinaryName} - ${this.TagInfo.Description})`
         return txt;
     }
 
@@ -249,6 +290,9 @@ class BigPoolList
  */
 function BigPoolIterator()
 {
+    if ( g_PoolTag_Content === undefined || g_PoolTag_Content.length === 0)
+        RefreshPooltagCache();
+
     return new BigPoolList();
 }
 
@@ -259,7 +303,7 @@ function BigPoolIterator()
 function initializeScript()
 {
     let CommandName = "BigPool";
-    log("[+] Adding function '" + CommandName + "'");
+    log(`[+] Adding function '${CommandName}'`);
 
     return [
         new host.functionAlias(BigPoolIterator, CommandName),

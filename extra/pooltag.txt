@@ -682,7 +682,7 @@ fboX - <unknown>    - EXIFS FOBXVF List
 Fcbl - <unknown>    - EXIFS FCBlock
 
 Fcon - nt!RtlpFc    - Feature Configuration Management
- 
+
 Feiv - netio.sys    - WFP filter engine incoming values
 Fecc - netio.sys    - WFP filter engine classify context
 Fecf - netio.sys    - WFP filter engine callout context
@@ -4638,4 +4638,3 @@ FCrs - dxgkrnl!CContentResourceState::operator new - FLIPCONTENT_CONTENTRESOURCE
 FCub - dxgkrnl!CEndpointResourceStateManager::PrepareIncrementalUpdateForStateManager - FLIPCONTENT_INCREMENTALRESOURCEUPDATEFORCONSUMER
 FCuu - dxgkrnl!CEndpointResourceStateManager::PrepareIncrementalUpdateForUser - FLIPCONTENT_INCREMENTALRESOURCEUPDATEFORUSER
 FCwr - dxgkrnl!CFlipWaitedConsumerReturn::operator new - FLIPCONTENT_WAITEDCONSUMERRETURN
-
