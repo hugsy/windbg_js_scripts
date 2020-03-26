@@ -74,7 +74,7 @@ function Hex2Ascii(hexx)
 
 
 
-const POOLTAG_FILEPATH = "\\\\ph0ny\\Code\\windbg_js_scripts\\extra\\pooltag.txt";
+const POOLTAG_FILEPATH = "\\\\ph0ny\\code\\windbg_js_scripts\\extra\\pooltag.txt";
 var g_PoolTag_Content = [];
 
 
@@ -85,7 +85,6 @@ function GetTagInfo(TagName)
 {
     for(let entry of g_PoolTag_Content)
     {
-        //log(`${entry[0]} === ${TagName}?`);
         if(entry[0] === TagName)
             return entry;
     }
@@ -216,7 +215,6 @@ class BigPool
      */
     get Tag()
     {
-        let TagAscii = ``;
         let txt = `'${this.TagInfo.Name}'`;
         if(this.TagInfo.BinaryName !== "" || this.TagInfo.Description !== "")
             txt += ` (${this.TagInfo.BinaryName} - ${this.TagInfo.Description})`
