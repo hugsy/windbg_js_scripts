@@ -37,6 +37,9 @@ function $(r){ if(!IsKd()) return host.currentThread.Registers.User[r]; else ret
 function GetSymbolFromAddress(x){ return system(`.printf "%y", ${x.toString(16)}`).First(); }
 function poi(x){ return IsX64() ? u64(x) : u32(x); }
 
+function capitalize(x){ return x[0].toUpperCase() + x.toLowerCase().slice(1); }
+
+
 //
 // copied from BigPool.js
 //
@@ -101,8 +104,8 @@ class LookasideItem
     constructor(obj, name)
     {
         this.RawObject = obj;
+        this.Address = obj.address;
         this.Name = `${name}LookasideItem`;
-        this.Address = this.RawObject.address;
     }
 
 
@@ -159,7 +162,7 @@ class LookasideList
         this.__module = parts[0];
         this.__symbol = parts[1];
         this.__item_processed = 0;
-        this.__name = name[0].toUpperCase() + name.toLowerCase().slice(1);
+        this.__name = capitalize(name);
     }
 
 
@@ -185,7 +188,6 @@ class LookasideList
                 "ListEntry"
             );
 
-
             for( let item of LookAsideIterator)
             {
                 yield new LookasideItem(item, this.__name);
@@ -200,7 +202,7 @@ class LookasideList
 /**
  *
  */
-function *GetAllLookAsideIterator(arg)
+function *GetAllLookAsideIterator(arg = "all")
 {
     // nt!ExPoolLookasideListHead    ->   Non-Paged and Paged Pool lookaside list
     // nt!ExSystemLookasideListHead  ->   Non-Paged and Paged System lookaside list
@@ -208,27 +210,40 @@ function *GetAllLookAsideIterator(arg)
     // nt!ExPagedLookasideListHead   ->   Paged General lookaside list
 
     const _nt_ll_list = [
-        "nt!ExPoolLookasideListHead",
-        "nt!ExSystemLookasideListHead",
-        "nt!ExNPagedLookasideListHead",
-        "nt!ExPagedLookasideListHead"
+        ["pool", "nt!ExPoolLookasideListHead"],
+        ["system", "nt!ExSystemLookasideListHead"],
+        ["npgeneral", "nt!ExNPagedLookasideListHead"],
+        ["pgeneral", "nt!ExPagedLookasideListHead"]
     ];
+    const _nt_map = new Map(_nt_ll_list);
 
-    let lists = [];
+    var lists = new Map();
     if(arg === "all")
-        lists = _nt_ll_list;
-    else if (arg === "pool")
-        lists.push("nt!ExPoolLookasideListHead");
-    else if (arg === "system")
-        lists.push("nt!ExSystemLookasideListHead");
-    else if (arg === "npgeneral")
-        lists.push("nt!ExNPagedLookasideListHead");
-    else if (arg === "pgeneral")
-        lists.push("nt!ExPagedLookasideListHead");
-
-    for(let list of lists)
+        for(let [name, symbol] of _nt_map)
+            lists.set(symbol, name);
+    else
     {
-        for (let p of new LookasideList(list, arg))
+        lists = new Map();
+        if(_nt_map.has(arg))
+        {
+            //
+            // map the alias to a real symbol
+            //
+            let sym = _nt_map.get(arg);
+            lists.set(sym, arg)
+        }
+        else
+        {
+            //
+            // symbol is passed as argument, just pass it along
+            //
+            lists.set(arg, "default");
+        }
+    }
+
+    for(let [symbol, name] of lists)
+    {
+        for (let p of new LookasideList(symbol, name))
         {
             yield p;
         }
