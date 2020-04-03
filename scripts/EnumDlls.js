@@ -1,6 +1,7 @@
 /// <reference path="JSProvider.d.ts" />
 "use strict";
 
+
 /**
  *
  * Enumerate UM modules for the currently debugged process.
@@ -15,7 +16,7 @@
  */
 
 
-const log = x => host.diagnostics.debugLog(x + "\n");
+const log = x => host.diagnostics.debugLog(`${x}\n`);
 
 function IsKd(){ return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize === 8;}
@@ -238,7 +239,7 @@ var MD5 = function (string) {
             b=AddUnsigned(b,BB);
             c=AddUnsigned(c,CC);
             d=AddUnsigned(d,DD);
-            }
+        }
 
         var temp = WordToHex(a)+WordToHex(b)+WordToHex(c)+WordToHex(d);
 
@@ -272,30 +273,36 @@ function *LoadedPeImages()
 /**
  *
  */
-function CheckSec(ImagePath, Dll)
+function *CheckSec()
 {
-    let DosHeader = host.createTypedObject(Dll.DllBase.address, "ntdll", "_IMAGE_DOS_HEADER");
-    let PeHeader = IsX64()
-        ? host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64")
-        : host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS32");
-    let PeFlags = PeHeader.OptionalHeader.DllCharacteristics;
-    let flags = [];
-
-    for( let flagName in g_FlagsToCheck )
+    for( let Dll of LoadedPeImages() )
     {
-        let flagValue = g_FlagsToCheck[flagName];
-        if (PeFlags & flagValue)
+        var ImagePath = host.memory.readWideString(Dll.FullDllName.Buffer.address);
+        let DosHeader = host.createTypedObject(Dll.DllBase.address, "ntdll", "_IMAGE_DOS_HEADER");
+        let PeHeader = IsX64()
+            ? host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64")
+            : host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS32");
+        let PeFlags = PeHeader.OptionalHeader.DllCharacteristics;
+        let flags = [];
+
+        for( let flagName in g_FlagsToCheck )
         {
-            flags.push(flagName);
+            let flagValue = g_FlagsToCheck[flagName];
+            if (PeFlags & flagValue)
+            {
+                flags.push(flagName);
+            }
         }
+
+        let Buffer = host.memory.readMemoryValues(Dll.DllBase.address, Dll.SizeOfImage / 2, 2, false);
+
+        yield {
+            Image: ImagePath,
+            ImageBase: DosHeader.address,
+            Flags: flags.join("|"),
+            Md5Hash: MD5(Buffer)
+        };
     }
-
-    let Buffer = host.memory.readMemoryValues(Dll.DllBase.address, Dll.SizeOfImage / 2, 2, false);
-
-    return `
-- Image: "${ImagePath} (base 0x${DosHeader.address.toString(16)})"
-\tFlags: ${flags.join("|")}
-\tMD5: ${MD5(Buffer)}`;
 }
 
 
@@ -311,11 +318,7 @@ function checksec()
         return;
     }
 
-    for( let Dll of LoadedPeImages() )
-    {
-        var Name = host.memory.readWideString(Dll.FullDllName.Buffer.address);
-        log(CheckSec(Name, Dll));
-    }
+    return CheckSec();
 }
 
 
@@ -331,27 +334,19 @@ class EnumDlls
 }
 
 
-/**
- *
- */
-function invokeScript()
-{
-    return checksec();
-}
-
 
 /**
  *
  */
 function initializeScript()
 {
-    //log("[+] Adding the command `LoadedPeImages`...");
+    log("[+] Adding the commands `LoadedImages` && `checksec`...");
     return [
         new host.apiVersionSupport(1, 3),
 
         new host.functionAlias(
             LoadedPeImages,
-            "LoadedDlls"
+            "LoadedImages"
         ),
 
         new host.functionAlias(
