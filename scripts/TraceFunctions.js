@@ -83,7 +83,7 @@ function PrintRegistersCallback32(loc, range, comment="")
     for( let i of [...Array(max_range).slice(min_range, max_range).keys()] )
     {
         let index = min_range + i;
-        let arg = u32($("esp").add(ptrsize*index);
+        let arg = u32($("esp").add(ptrsize*index));
         output.push(`arg[${index.toString()}]=${arg.toString(16)}`);
     }
 
@@ -125,9 +125,6 @@ function GetAddressFromSymbol(sym)
  */
 function PrintCallArguments(location, range, comment)
 {
-    if (!IsKd())
-        return;
-
     if (range === undefined)
     {
         range = "0:4";
