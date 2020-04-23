@@ -121,10 +121,9 @@ class Vad
         //
         this.__VadType = this.VadObject.Core.u.VadFlags.VadType;
         this.VpnStart = MakeQword(this.VadObject.Core.StartingVpnHigh, this.VadObject.Core.StartingVpn);
-        this.VaStart = this.VpnStart.bitwiseShiftLeft(12).bitwiseOr(0xfff);
+        this.VaStart = this.VpnStart.bitwiseShiftLeft(12);
         this.VpnEnd = MakeQword(this.VadObject.Core.EndingVpnHigh, this.VadObject.Core.EndingVpn);
-        this.VaEnd = this.VpnEnd.bitwiseShiftLeft(12).bitwiseOr(0xfff);
-
+        this.VaEnd = this.VpnEnd.add(1).bitwiseShiftLeft(12);
         this.Size = host.parseInt64(this.VaEnd - this.VaStart);
     }
 
@@ -191,6 +190,13 @@ class Vad
        }
     }
 
+    /**
+     *
+     */
+    IsInRange(address)
+    {
+        return (address.compareTo(this.VaStart) >= 0 && address.compareTo(this.VaEnd) < 0);
+    }
 
     /**
      *
@@ -310,6 +316,43 @@ class VadList
 
         if(nodeObject.Right)
             yield *this.__Walk(level+1, nodeObject.Right.address);
+    }
+
+    /**
+     * The function looks for the vad entry that describes the range that contains the address.
+     *
+     * @param {host.Int64} virtualAddress An address to find in the process
+     * @returns {Vad} If the function finds the VAD, it returns a Vad object, else it returns null
+     */
+    LookupVad(virtualAddress)
+    {
+        var currentLevel = 0;
+        var currentVadAddress = this.__process.VadRoot.Root.address;
+
+        while (currentVadAddress.compareTo(0) != 0)
+        {
+            var currentVad = new Vad(currentLevel, currentVadAddress, this.__pMmProtectToValue);
+
+            if (currentVad.IsInRange(virtualAddress))
+            {
+                return currentVad;
+            }
+
+            currentLevel += 1;
+
+            var currentNodeObject = host.createTypedObject(currentVadAddress, "nt", "_RTL_BALANCED_NODE");
+
+            if (currentVad.VaStart.compareTo(virtualAddress) > 0) 
+            {
+                currentVadAddress = currentNodeObject.Left.address;
+            } 
+            else 
+            {
+                currentVadAddress = currentNodeObject.Right.address;
+            }
+        }
+
+        return null;
     }
 }
 
