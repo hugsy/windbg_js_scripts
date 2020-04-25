@@ -13,9 +13,10 @@ const ok   = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err  = x => log(`[-] ${x}`);
 
-const getHeader = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
-const getName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectName
-const getTypeName = x  => host.createTypedObject(getHeader(x), "nt", "_OBJECT_HEADER").ObjectType
+const getHeaderAddress = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
+const getHeader = x => host.createTypedObject(getHeaderAddress(x), "nt", "_OBJECT_HEADER");
+const getName = x  => getHeader(x).ObjectName;
+const getTypeName = x  => getHeader(x).ObjectType;
 
 
 
@@ -30,50 +31,52 @@ class WinObj
         // Set the current WinObj parent
         //
         this.Parent = (parent === null) ? "" : parent;
+        this.ObjectHeader = getHeader(obj);
+        this.Type = this.ObjectHeader.ObjectType;
 
         //
-        // Get its type
+        // Create a typed object according to the object type
         //
-        this.Type = getTypeName(obj);
-
-
-        //
-        // Save the raw _OBJECT_HEADER (ugly af but works)
-        //
-        switch(this.Type)
-        {
-            case "Type":          this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_TYPE"); break;
-            case "Event":         this.RawHeader = host.createTypedObject(obj.address, "nt", "_KEVENT"); break;
-            case "Driver":        this.RawHeader = host.createTypedObject(obj.address, "nt", "_DRIVER_OBJECT"); break;
-            case "Device":        this.RawHeader = host.createTypedObject(obj.address, "nt", "_DEVICE_OBJECT"); break;
-            case "ALPC Port":     this.RawHeader = host.createTypedObject(obj.address, "nt", "_ALPC_PORT"); break;
-            case "Section":       this.RawHeader = host.createTypedObject(obj.address, "nt", "_SECTION"); break;
-            case "SymbolicLink":  this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_SYMBOLIC_LINK"); break;
-            case "Directory":     this.RawHeader = host.createTypedObject(obj.address, "nt", "_OBJECT_DIRECTORY"); break;
-
-            //
-            // todo : finish it
-            //
-
-            default:
-                this.RawHeader = obj;
-                break;
+        var TypeToStruct = {
+            "Type": ["nt", "_OBJECT_TYPE"],
+            "Event": ["nt", "_KEVENT"],
+            "Driver": ["nt", "_DRIVER_OBJECT"],
+            "Device": ["nt", "_DEVICE_OBJECT"],
+            "ALPC Port": ["nt", "_ALPC_PORT"],
+            "Section": ["nt", "_SECTION"],
+            "SymbolicLink": ["nt", "_OBJECT_SYMBOLIC_LINK"],
+            "Directory": ["nt", "_OBJECT_DIRECTORY"],
+            "Thread": ["nt", "_ETHREAD"],
+            "Process": ["nt", "_EPROCESS"],
+            "Key": ["nt", "_CM_KEY_BODY"],
+            "Job": ["nt", "_EJOB"],
+            "Mutant": ["nt", "_KMUTANT"],
+            "File": ["nt", "_FILE_OBJECT"],
+            "Token": ["nt", "_TOKEN"],
+            "Semaphore": ["nt", "_KSEMAPHORE"]
         }
 
-        this.RawObjectHeader = host.createTypedObject(
-            getHeader(obj),
-            "nt", "_OBJECT_HEADER"
-        );
+        var StructObj = TypeToStruct[this.Type];
 
-
+        if (StructObj != undefined)
+        {
+            this.Object = host.createTypedObject(obj.address, StructObj[0], StructObj[1]);
+        }
+        else
+        {
+            this.Object = obj;
+        }
 
         //
         // Get its name. If it's paged out, don't bother splicing
+        // The "ObjectName" member is an extension to the _OBJECT_HEADER structure implemented in kdexts.dll
         //
-        this.Name = getName(this.RawHeader);
-        if (this.Name !== undefined)
-            this.Name = this.Name.slice(1, -1);
+        this.Name = this.ObjectHeader.ObjectName;
 
+        if (this.Name !== undefined)
+        {
+            this.Name = this.Name.slice(1, -1);
+        }
     }
 
 
@@ -86,16 +89,51 @@ class WinObj
         return text.replace("\\\\", "\\");
     }
 
+    /**
+     * Help
+     */
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            Parent: { Help: "Pointer to the parent WinObj node.", },
+            Name: { Help: "Name of the current node.", },
+            Type: { Help: "The type of the current node.", },
+            ObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
+            Object: { Help: "Pointer to the native Windows structure.", },
+        };
+    }
+}
+
+
+class WinObjDirectory extends WinObj
+{
+    /**
+     * Initialize new WinObjDirectory
+     */
+    constructor(parent, obj)
+    {
+        super(parent, obj);
+    }
 
     /**
-     *
+     * WinObjDirectory.Children getter
      */
-    *__DumpDirectory(ObjectDirectory)
+    get Children()
+    {
+        return this.__WalkChildren();
+    }
+
+
+
+    /**
+     * Visit children nodes and store the objects in an array
+     */
+    *__WalkChildren()
     {
         //
         // Dump the 37 hash buckets
         //
-        for (var bucketEntry of ObjectDirectory.HashBuckets)
+        for (var bucketEntry of this.Object.HashBuckets)
         {
             //
             // Only if non-empty
@@ -139,66 +177,39 @@ class WinObj
         }
     }
 
-    /**
-     * Help
-     */
-    get [Symbol.metadataDescriptor]()
-    {
-        return {
-            Parent: { Help: "Pointer to the parent WinObj node.", },
-            Name: { Help: "Name of the current node.", },
-            Type: { Help: "The type of the current node.", },
-            RawObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
-            RawHeader: { Help: "Pointer to the native Windows structure.", },
-        };
-    }
-}
-
-
-class WinObjDirectory extends WinObj
-{
-    /**
-     * Initialize new WinObjDirectory
-     */
-    constructor(parent, obj)
-    {
-        super(parent, obj);
-    }
-
 
     /**
-     * Visit children nodes and store the objects in an array
-     */
-    *__Walk()
-    {
-        let dirObject = host.createTypedObject(
-            this.RawHeader.address,
-            "nt",
-            "_OBJECT_DIRECTORY"
-        );
-
-        for (let Child of this.__DumpDirectory(dirObject))
-        {
-            yield Child;
-        }
-    }
-
-
-    /**
-     * WinObjDirectory.Children getter
-     */
-    get Children()
-    {
-        return this.__Walk();
-    }
-
-
-    /**
+     * Lookup a name in this object directory
      *
+     * @param {String} childrenName Object name relative to this directory
      */
-    toString()
+    LookupByName(childrenName)
     {
-        return WinObj.prototype.toString.call(this);
+        var currentObject = this;
+
+        for (var namePart of childrenName.split("\\"))
+        {
+            namePart = namePart.toLowerCase();
+
+            var found = false;
+
+            for (var children of currentObject.Children)
+            {
+                if (children.Name.toLowerCase() == namePart)
+                {
+                    found = true;
+                    currentObject = children;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                return null;
+            }
+        }
+
+        return currentObject;
     }
 
     /**
@@ -207,12 +218,12 @@ class WinObjDirectory extends WinObj
     get [Symbol.metadataDescriptor]()
     {
         return {
-            Children: { Help: "Enumerate all the children to this node.", },
             Parent: { Help: "Pointer to the parent WinObj node.", },
             Name: { Help: "Name of the current node.", },
             Type: { Help: "The type of the current node.", },
-            RawObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
-            RawHeader: { Help: "Pointer to the native Windows structure.", },
+            ObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
+            Object: { Help: "Pointer to the native Windows structure.", },
+            Children: { Help: "Enumerate all the children to this node.", }
         };
     }
 }
