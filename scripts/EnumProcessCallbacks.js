@@ -43,7 +43,7 @@ class NotifyCallbackEntry
         //
         // See nt!ExAllocateCallBack
         //
-        this.__type = _type;
+        this.Type = _type;
         this.NotifyCallbackAddress = addr
         let StructAddr = this.NotifyCallbackAddress;
         this.PushLock = poi(StructAddr.add(0))
@@ -55,24 +55,31 @@ class NotifyCallbackEntry
     {
         let msg = "unknown";
 
-        if (this.__type == "Thread")
+        if (this.Type === "Thread")
         {
             // set to 0 by nt!PsSetCreateThreadNotifyRoutine
             if (this.Flags == 0)
                 msg = "None";
             // if not 0 , set by nt!PsSetCreateThreadNotifyRoutineEx
-            if (this.Flags == 1)
+            else if (this.Flags == 1)
                 msg = "ThreadNotifyNonSystem";
             else if (this.Flags == 2)
                 msg = "ThreadNotifySubsystems";
+
+            else
+                msg = `0x${this.Flags.toString(16)}`;
+
         }
-        else if (this.__type == "Process")
+        else if (this.Type === "Process")
         {
             if (this.Flags == 0)
                 msg = "None";
 
-            if (this.Flags == 2)
+            else if (this.Flags == 2)
                 msg = "ProcessNotifySubsystems";
+
+            else
+                msg = `0x${this.Flags.toString(16)}`;
         }
 
         return msg;
@@ -101,7 +108,6 @@ function *KdEnumerateProcessCallbacks(_type)
         return;
     }
 
-    let RundownTable = [];
     let CallbackTable = host.getModuleSymbolAddress("nt", `PspCreate${_type}NotifyRoutine`);
     let i = 0;
 
@@ -118,18 +124,20 @@ function *KdEnumerateProcessCallbacks(_type)
     }
 }
 
+
 function *KdEnumerateCallbacks()
 {
     //let ProcessCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateProcessNotifyRoutine`);
     //ok(`nt!PspCreateProcessNotifyRoutine is at 0x${ProcessCallbackTable.toString(16)}`);
-    //for (const v of KdEnumerateProcessCallbacks("Process"))
-    //    yield v;
+    for (const v of KdEnumerateProcessCallbacks("Process"))
+        yield v;
 
     //let ThreadCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateThreadNotifyRoutine`);
     //ok(`nt!PspCreateThreadNotifyRoutine is at 0x${ThreadCallbackTable.toString(16)}`);
     for (const v of KdEnumerateProcessCallbacks("Thread"))
         yield v;
 }
+
 
 /**
  *
