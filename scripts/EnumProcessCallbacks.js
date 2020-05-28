@@ -36,29 +36,58 @@ function poi(x){ return IsX64() ? u64(x) : u32(x); }
 
 
 
-class CallbackEntry
+class NotifyCallbackEntry
 {
-    constructor(val, addr)
+    constructor(_type, addr)
     {
-        this.Address = addr
-        this.Unk1 = val
-        this.Type = poi(this.Address);
-        this.CallbackAddress = poi( this.Address.add( ptrsize() ) );
-        this.CallbackSymbol = GetSymbolFromAddress(this.CallbackAddress)
+        //
+        // See nt!ExAllocateCallBack
+        //
+        this.__type = _type;
+        this.NotifyCallbackAddress = addr
+        let StructAddr = this.NotifyCallbackAddress;
+        this.PushLock = poi(StructAddr.add(0))
+        this.NotifyInformation = poi(StructAddr.add( ptrsize() ));
+        this.Flags = poi(StructAddr.add( 2*ptrsize() ));
+    }
+
+    FlagsToString()
+    {
+        let msg = "unknown";
+
+        if (this.__type == "Thread")
+        {
+            // set to 0 by nt!PsSetCreateThreadNotifyRoutine
+            if (this.Flags == 0)
+                msg = "None";
+            // if not 0 , set by nt!PsSetCreateThreadNotifyRoutineEx
+            if (this.Flags == 1)
+                msg = "ThreadNotifyNonSystem";
+            else if (this.Flags == 2)
+                msg = "ThreadNotifySubsystems";
+        }
+        else if (this.__type == "Process")
+        {
+            if (this.Flags == 0)
+                msg = "None";
+
+            if (this.Flags == 2)
+                msg = "ProcessNotifySubsystems";
+        }
+
+        return msg;
     }
 
 
-    typeToString()
+    CallbackSymbolToString()
     {
-
-        return `0x${this.Type.toString(16)}`;
+        return GetSymbolFromAddress(this.NotifyInformation);;
     }
 
 
     toString()
     {
-        let str = `(${this.CallbackAddress.toString(16)}) ${this.CallbackSymbol} - ${this.typeToString()}`;
-        return str;
+        return `CallbackFn: ${this.CallbackSymbolToString()}, Flags=${this.FlagsToString()}`;
     }
 }
 
@@ -77,17 +106,15 @@ function *KdEnumerateProcessCallbacks(_type)
     let i = 0;
 
 
-    while (true)
+    for (let i=0; i<=0x40; i++)
     {
-        let entry = poi(CallbackTable.add(i));
+        let offset = i * ptrsize();
+        let entry = poi(CallbackTable.add(offset));
         if(entry.compareTo(0) == 0)
             break;
 
-        let _type = entry.bitwiseAnd(0xf);
-        let _addr = entry.subtract(_type);
-
-        yield new CallbackEntry(_type, _addr);
-        i += ptrsize();
+        let _addr = entry.bitwiseAnd(host.parseInt64(-16));
+        yield new NotifyCallbackEntry(_type, _addr);
     }
 }
 
@@ -95,8 +122,8 @@ function *KdEnumerateCallbacks()
 {
     //let ProcessCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateProcessNotifyRoutine`);
     //ok(`nt!PspCreateProcessNotifyRoutine is at 0x${ProcessCallbackTable.toString(16)}`);
-    for (const v of KdEnumerateProcessCallbacks("Process"))
-        yield v;
+    //for (const v of KdEnumerateProcessCallbacks("Process"))
+    //    yield v;
 
     //let ThreadCallbackTable = host.getModuleSymbolAddress("nt", `PspCreateThreadNotifyRoutine`);
     //ok(`nt!PspCreateThreadNotifyRoutine is at 0x${ThreadCallbackTable.toString(16)}`);
