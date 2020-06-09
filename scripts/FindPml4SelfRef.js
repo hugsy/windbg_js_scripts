@@ -8,7 +8,9 @@
 
 /**
  *
- * Template file for new WinDbg JS scripts
+ * Browse 256 values of PML4 to retrieve the Self-Reference PTE
+ *
+ * Todo
  *
  */
 

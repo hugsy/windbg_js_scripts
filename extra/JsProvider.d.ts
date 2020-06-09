@@ -492,7 +492,7 @@ declare namespace host {
         /**
          * Shifts the 64-bit value right by the given amount and returns the result
          */
-        bitwiseShiftLeft(value: number) : Int64;
+        bitwiseShiftRight(value: number) : Int64;
 
 
         /**
