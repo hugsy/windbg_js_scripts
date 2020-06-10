@@ -484,13 +484,13 @@ declare namespace host {
 
 
         /**
-         * Shifts the 64-bit value left by the given amount and returns the result
+         * Arithmetic shift the 64-bit value left by the given amount and returns the result
          */
         bitwiseShiftLeft(value: number) : Int64;
 
 
         /**
-         * Shifts the 64-bit value right by the given amount and returns the result
+         * Arithmetic right shift the 64-bit value right by the given amount and returns the result
          */
         bitwiseShiftRight(value: number) : Int64;
 

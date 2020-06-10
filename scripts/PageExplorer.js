@@ -34,6 +34,8 @@
  *
  * todo:
  * [ ] add range search
+ * [ ] !pfn
+ * [ ] !pa2va
  */
 
 const DEBUG = false;
@@ -44,7 +46,7 @@ const ok   = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err  = x => log(`[-] ${x}`);
 const hex  = x => x.toString(16);
-const i64  = x => host.parseInt64(x);
+const i64  = x => host.parseInt64(`${x}`);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const evaluate = x => host.evaluateExpression(`${x}`);
 const sizeof = x => evaluate(`sizeof(${x})`);
@@ -58,6 +60,18 @@ function $(r){ return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.c
 
 function u32(x, k=false){if(!k) return host.memory.readMemoryValues(x, 1, 4)[0];let cmd = `!dd 0x${x.toString(16)}`;let res = system(cmd)[0].split(" ").filter(function(v,i,a){return v.length > 0;});return i64(`0x${res[2].replace("`","")}`);}
 function u64(x, k=false){if(!k) return host.memory.readMemoryValues(x, 1, 8)[0];let cmd = `!dq 0x${x.toString(16)}`;let res = system(cmd)[0].split(" ").filter(function(v,i,a){return v.length > 0;});return i64(`0x${res[2].replace("`","")}`);}
+function poi(x){ if(IsX64()) return u64(x); else return u32(x);}
+
+
+var g_pPfnDatabase = undefined;
+function GetPfnDatabase()
+{
+    if (g_pPfnDatabase === undefined)
+        g_pPfnDatabase = poi( host.getModuleSymbolAddress("nt", "MmPfnDatabase") );
+    return g_pPfnDatabase;
+}
+
+
 
 
 class PageEntryFlags
@@ -135,6 +149,7 @@ class PageGenericEntry
         */
        this.pfn = this.__raw_value.bitwiseShiftRight(12).bitwiseAnd(0xFFFFFFFFF);
        this.physical_page_address = this.pfn.bitwiseShiftLeft(12);
+       this.va = GetPfnEntry(this.pfn).PteAddress;
     }
 }
 
@@ -165,6 +180,8 @@ class PagedVirtualAddress
         this.pte_offset = this.va.bitwiseShiftRight(12).bitwiseAnd(0b111111111);
         this.offset = this.va.bitwiseAnd(0b111111111111);
 
+        // ok(`pmle4=${hex(this.pml4e_offset)} pdpe=${hex(this.pdpe_offset)} pde=${hex(this.pde_offset)} pte=${hex(this.pte_offset)} off=${hex(this.offset)}`);
+
         this.pml4e = new PageDirectoryEntry( u64(this.cr3.add(this.pml4e_offset.multiply(ptrsize())), true) );
         this.pdpe = new PageDirectoryEntry( u64(this.pml4e.physical_page_address.add(this.pdpe_offset.multiply(ptrsize())), true) );
         this.pde = new PageDirectoryEntry( u64(this.pdpe.physical_page_address.add(this.pde_offset.multiply(ptrsize())), true) );
@@ -181,7 +198,7 @@ class PagedVirtualAddress
 }
 
 
-function PageExplorer(addr)
+function PageTableExplorer(addr)
 {
     if ( !IsKd() || !IsX64() )
     {
@@ -195,13 +212,45 @@ function PageExplorer(addr)
         return;
     }
 
-    //
-    // collect all offsets from VA
-    //
-    let address = i64(addr);
-    let paged_va = new PagedVirtualAddress(address, $("cr3"));
-    return paged_va;
+    return new PagedVirtualAddress( i64(addr), $("cr3"));
 }
+
+
+
+/**
+ *
+ */
+function GetPfnEntry(idx)
+{
+    return host.createTypedObject(
+        GetPfnDatabase().add( i64(idx).multiply(sizeof("_MMPFN"))),
+        "nt",
+        "_MMPFN"
+    );
+}
+
+
+
+/**
+ *
+ */
+function PhysicalAddressToVirtualAddress(addr)
+{
+    // get the pfn index from the physical address
+    let pfnIndex = addr.bitwiseShiftRight(12);
+    ok(`idx = ${pfnIndex.toString(16)}`);
+
+    //let pfn = new host.typeSystem.arrayDimension(pPfnDatabase, pfnDbLengh, sizeof("_MMPFN")); // bad idea
+
+    // get the pfn entry
+    let pfnEntry  = GetPfnEntry(pfnIndex);
+    ok(`entry = ${pfnEntry.toString(16)}`);
+
+    // todo finish
+
+    return pfnEntry;
+}
+
 
 
 
@@ -210,7 +259,7 @@ function PageExplorer(addr)
  */
 function invokeScript(addr)
 {
-    log(PageExplorer(addr).toString());
+    log(PageTableExplorer(addr).toString());
 }
 
 
@@ -221,7 +270,8 @@ function initializeScript()
 {
     return [
         new host.apiVersionSupport(1, 3),
-        new host.functionAlias(PageExplorer, "pte"),
+        new host.functionAlias(PageTableExplorer, "pte2"),
+        new host.functionAlias(GetPfnEntry, "pfn2"),
+        new host.functionAlias(PhysicalAddressToVirtualAddress, "pa2va"),
     ];
 }
-
