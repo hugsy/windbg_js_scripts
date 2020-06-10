@@ -10,10 +10,27 @@
  *
  * !pte replacement - but way slower because there's no primitive for read/write physical memory in JS
  *
+ * To load:
  * kd> .scriptload \\path\to\PageExplorer.js"
- * kd> dx @$pte( @rip )
- * or
+ *
+ * To use:
  * kd> dx @$pte(0xFFFFF78000000000)
+ * or
+ * kd> dx @$pte( @rip )
+ * @$pte(@rbx)                 : VA=0xffff800ad9943830, PA=0x54ad830, Offset=0x830
+ *   va               : 0xffff800ad9943830
+ *   cr3              : 0x1aa002
+ *   pml4e_offset     : 0x100
+ *   pdpe_offset      : 0x2b
+ *   pde_offset       : 0xcc
+ *   pte_offset       : 0x143
+ *   offset           : 0x830
+ *   pml4e            : PDE(PA=1239000, PFN=1239, Flags=PRwU--AD-eX)
+ *   pdpe             : PDE(PA=123c000, PFN=123c, Flags=PRwU--AD-eX)
+ *   pde              : PDE(PA=2fca000, PFN=2fca, Flags=PRwU--AD-eX)
+ *   pte              : PTE(PA=54ad000, PFN=54ad, Flags=PRwU--AD-eX)
+ *   pa               : 0x54ad830
+ *
  *
  * todo:
  * [ ] add range search
@@ -82,7 +99,7 @@ class PageEntryFlags
         let res = [];
         res.push( (this.Present)?"P":"-" );
         res.push( (this.WriteEnabled)?"Rw":"Rd" );
-        res.push( (this.Owner)?"K":"U" );
+        res.push( (this.Owner)?"U":"K" );
         res.push( (this.WriteThrough)?"W":"-" );
         res.push( (this.CacheDisabled)?"C":"-" );
         res.push( (this.Accessed)?"A":"-" );
