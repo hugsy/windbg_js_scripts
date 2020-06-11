@@ -19,7 +19,7 @@ const err  = x => log(`[-] ${x}`);
 const hex  = x => x.toString(16);
 const i64  = x => host.parseInt64(x);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const sizeof = x => host.evaluateExpression(`sizeof(${x})`);
+const sizeof = x => i64(system(`?? sizeof(${x})`)[0].split(" ")[2]);
 const  u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
