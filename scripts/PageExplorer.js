@@ -135,7 +135,7 @@ class PageGenericEntry
 {
     constructor(va)
     {
-        this.__raw_value = va; //.bitwiseShiftLeft(8).bitwiseShiftRight(8);
+        this.__raw_value = va;
         this.flags = new PageEntryFlags( va.bitwiseAnd(0b111111111111) );
 
         /**
@@ -149,7 +149,11 @@ class PageGenericEntry
         */
        this.pfn = this.__raw_value.bitwiseShiftRight(12).bitwiseAnd(0xFFFFFFFFF);
        this.physical_page_address = this.pfn.bitwiseShiftLeft(12);
-       this.va = GetPfnEntry(this.pfn).PteAddress;
+    }
+
+    get va()
+    {
+        return GetPfnEntry(this.pfn).PteAddress;
     }
 }
 
