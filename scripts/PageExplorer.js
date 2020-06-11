@@ -141,9 +141,9 @@ class PageGenericEntry
         +0x000 WsleAge          : Pos 56, 4 Bits
         +0x000 WsleProtection   : Pos 60, 3 Bits
         */
-       this.__pfn = this.value.bitwiseShiftLeft(16).bitwiseShiftRight(16).bitwiseShiftRight(12).bitwiseAnd(0xFFFFFFFFF);
-       this.__pfn_o = GetPfnEntry(this.__pfn);
-       this.physical_page_address = this.__pfn.bitwiseShiftLeft(12);
+       this.pfn_index = this.value.bitwiseShiftLeft(16).bitwiseShiftRight(16).bitwiseShiftRight(12).bitwiseAnd(0xFFFFFFFFF);
+       this.__pfn_o = GetPfnEntry(this.pfn_index);
+       this.physical_page_address = this.pfn_index.bitwiseShiftLeft(12);
     }
 
     get pfn()
@@ -160,13 +160,13 @@ class PageGenericEntry
 
 class PageTableEntry extends PageGenericEntry
 {
-   toString() {return `PTE(PA=${hex(this.physical_page_address)}, PFN=${hex(this.__pfn)}, ${this.flags})` };
+   toString() {return `PTE(PA=${hex(this.physical_page_address)}, PFN=${hex(this.pfn_index)}, ${this.flags})` };
 }
 
 
 class PageDirectoryEntry extends PageGenericEntry
 {
-    toString() {return `PDE(PA=${hex(this.physical_page_address)}, PFN=${hex(this.__pfn)}, ${this.flags})`;}
+    toString() {return `PDE(PA=${hex(this.physical_page_address)}, PFN=${hex(this.pfn_index)}, ${this.flags})`;}
 }
 
 
