@@ -33,7 +33,6 @@
  *
  *
  * todo:
- * [ ] add range search
  * [ ] !pa2va
  */
 
@@ -155,6 +154,7 @@ class PageGenericEntry
     {
         return this.__pfn_o.PteAddress;
     }
+
 }
 
 
@@ -175,6 +175,7 @@ class PagedVirtualAddress
 {
     constructor(addr)
     {
+        system("r"); // hack: artificially refresh the register array
         this.va = i64(addr);
         this.cr3 = i64( $("cr3") ).bitwiseAnd(0xFFFFF000);
 
@@ -191,6 +192,12 @@ class PagedVirtualAddress
         this.pa = this.pte.physical_page_address.add(this.offset);
     }
 
+    get kernel_pte()
+    {
+        let pte_base = poi(host.getModuleSymbolAddress("nt", "MmPteBase")) ;
+        // equiv. to nt!MiGetPteAddress()
+        return pte_base.add(this.va.bitwiseShiftRight(9).bitwiseAnd(0x7ffffffff8));
+    }
 
     toString()
     {
