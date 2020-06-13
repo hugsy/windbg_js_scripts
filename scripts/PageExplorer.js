@@ -192,7 +192,7 @@ class PagedVirtualAddress
         this.pa = this.pte.physical_page_address.add(this.offset);
     }
 
-    get kernel_pte()
+    get kernel_pxe()
     {
         let pte_base = poi(host.getModuleSymbolAddress("nt", "MmPteBase")) ;
         // equiv. to nt!MiGetPteAddress()
