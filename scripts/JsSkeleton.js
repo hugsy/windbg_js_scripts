@@ -24,6 +24,8 @@ const  u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
+const FIELD_OFFSET = (t, n) => parseInt( system(`?? #FIELD_OFFSET(${t}, ${n})`).First().split(" ")[1].replace("0n", "") );
+const CONTAINING_RECORD = (a, t, n) => a.substract(FIELD_OFFSET(t, n));
 
 function ptrsize(){ return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize; }
 function pagesize(){ return host.namespace.Debugger.State.PseudoRegisters.General.pagesize; }
