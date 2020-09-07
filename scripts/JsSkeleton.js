@@ -34,6 +34,7 @@ function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Tar
 function $(r){ return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
 function GetSymbolFromAddress(x){ return system(`.printf "%y", ${x.toString(16)}`).First(); }
 function poi(x){ return IsX64() ? u64(x) : u32(x); }
+function assert(condition) {if (!condition){throw new Error("Assertion failed"); }}
 
 
 /**
