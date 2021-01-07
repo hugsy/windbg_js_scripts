@@ -33,6 +33,7 @@ function GetSymbolFromAddress(x){ return system(`.printf "%y", ${x.toString(16)}
 function poi(x){ return IsX64() ? u64(x) : u32(x); }
 function assert(condition) {if (!condition){throw new Error("Assertion failed"); }}
 function hex_to_ascii(str1){var hex  = str1.toString();var str = '';for(var n = 0; n < hex.length; n += 2) str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));return str;}
+function readUnicodeString(x){return host.memory.readWideString(x.Buffer, x.Length/2);}
 
 
 /**
@@ -79,10 +80,34 @@ const HCELL_BLOCK_MASK = 0x001ff000;
 const HCELL_OFFSET_SHIFT = 0;
 const HCELL_OFFSET_MASK = 0x00000fff;
 
-const GetCellType = x => (x & HCELL_TYPE_MASK) >> HCELL_TYPE_SHIFT;
+const GetCellType = x => (x & HCELL_TYPE_MASK) >> HCELL_TYPE_SHIFT; // Permanent / Volatile
 const GetCellTable = x => (x & HCELL_TABLE_MASK) >> HCELL_TABLE_SHIFT;
 const GetCellBlock = x => (x & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
 const GetCellOffset = x => x & HCELL_OFFSET_MASK;
+
+
+
+function KeyDataTypeToString(type)
+{
+    switch(type)
+    {
+        case 0: return "REG_NONE";
+        case 1: return "REG_SZ";
+        case 2: return "REG_EXPAND_SZ";
+        case 3: return "REG_BINARY";
+        case 4: return "REG_DWORD_LITTLE_ENDIAN";
+        case 4: return "REG_DWORD";
+        case 5: return "REG_DWORD_BIG_ENDIAN";
+        case 6: return "REG_LINK";
+        case 7: return "REG_MULTI_SZ";
+        case 8: return "REG_RESOURCE_LIST";
+        case 9: return "REG_FULL_RESOURCE_DESCRIPTOR";
+        case 10: return "REG_RESOURCE_REQUIREMENTS_LIST";
+        case 11: return "REG_QWORD_LITTLE_ENDIAN";
+        case 11: return "REG_QWORD";
+    }
+    return "unknown";
+}
 
 
 /**
@@ -98,19 +123,28 @@ function GetCellAddress(KeyHive, Index)
     let Table = GetCellTable(Index);
     let Block = GetCellBlock(Index);
     let Offset = GetCellOffset(Index);
-    log(`GetCellAddress: version=${KeyHive.Version} hhive=${KeyHive.address.toString(16)} type=${Type} table=${Table} block=${Block} offset=${Offset}`);
+    //log(`GetCellDataAddress: version=${KeyHive.Version} hhive=${KeyHive.address.toString(16)} type=${Type} table=${Table} block=${Block} offset=${Offset}`);
 
     let Map = KeyHive.Storage[Type].Map; // nt!_HMAP_DIRECTORY
     let MapTableEntry = Map.Directory[Table]; // nt!_HMAP_TABLE -> nt!_HMAP_ENTRY
     //log(`MapTableEntry=${hex(MapTableEntry.address)}`);
-    let Entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
-    let bin_addr = Entry.PermanentBinAddress.bitwiseAnd(~0x0f);
-    let Bin = host.createPointerObject(bin_addr, "nt", "_HBIN*");
+    let entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
+    let base_addr = entry.PermanentBinAddress.bitwiseAnd(~0x0f);
+    let cell_addr = base_addr.add(Offset);
+    //log(`cell_addr @ ${hex(cell_addr)}`);
+    //let Bin = host.createPointerObject(base_addr, "nt", "_HBIN*");
+    //if (Bin.Signature != CM_BIN_SIGNATURE)
+    //    throw Error(`invalid bin signature ${hex(Bin.Signature)} for bin at ${hex(Bin.address)}`);
+    return cell_addr;
+}
 
-    if (Bin.Signature != CM_BIN_SIGNATURE)
-        throw Error(`invalid bin signature ${hex(Bin.Signature)} for bin at ${hex(Bin.address)}`);
 
-    let Address = bin_addr.add(Offset).add(4); // i.e. sizeof(LONG)
+function GetCellDataAddress(KeyHive, Index)
+{
+    let Address = GetCellAddress(KeyHive, Index).add(4); // i.e. sizeof(LONG) -> data size
+    // Data Size:
+    // positive = free cell
+    // negative = allocated cell (actual size is –Size)
     return Address;
 }
 
@@ -119,42 +153,52 @@ class KeyNode
 {
     constructor(Index, KeyHive = undefined)
     {
-        if (g_RegistryRoot === undefined)
-        {
-            g_RegistryRoot = host.createPointerObject(
-                poi(host.getModuleSymbolAddress("nt", "CmpRegistryRootObject")),
-                "nt",
-                "_CM_KEY_BODY*"
-            );
+        this.KeyHive = KeyHive ? KeyHive : g_RegistryRoot.KeyControlBlock.KeyHive;
 
-            assert(g_RegistryRoot.Type == CM_KEY_BODY_TYPE);
-        }
-
-        if (KeyHive === undefined)
-            this.KeyHive = g_RegistryRoot.KeyControlBlock.KeyHive;
-        else
-            this.KeyHive = KeyHive;
-
-        this.Address = GetCellAddress(this.KeyHive, Index);
+        this.__Address = GetCellDataAddress(this.KeyHive, Index);
         //log(`node_address=${hex(this.Address)}`);
 
-        this.__Type = u16(this.Address);
+        this.__Type = u16(this.__Address);
 
         switch (this.__Type)
         {
+        case CM_LINK_NODE_SIGNATURE:
         case CM_KEY_NODE_SIGNATURE:
-            this.KeyNodeObject = host.createPointerObject(this.Address, "nt", "_CM_KEY_NODE*");
-            this.KeyName = host.memory.readString(this.KeyNodeObject.Name.address, this.KeyNodeObject.NameLength);
+            this.KeyNodeObject = host.createPointerObject(this.__Address, "nt", "_CM_KEY_NODE*");
+            this.KeyName = this.KeyNodeObject.NameLength > 0 ? host.memory.readString(this.KeyNodeObject.Name.address, this.KeyNodeObject.NameLength) : "";
+            // todo: for links use ChildHiveReference.{KeyCell,KeyHive}
             break;
 
         case CM_KEY_VALUE_SIGNATURE:
-            this.KeyValueObject  = host.createPointerObject(this.Address, "nt", "_CM_KEY_VALUE*");
-            this.KeyName = host.memory.readString(this.KeyValueObject.Name.address, this.KeyValueObject.NameLength);
+            this.KeyValueObject  = host.createPointerObject(this.__Address, "nt", "_CM_KEY_VALUE*");
+            this.KeyName = this.KeyValueObject.NameLength > 0 ? host.memory.readString(this.KeyValueObject.Name.address, this.KeyValueObject.NameLength) : "(Default)";
+            this.KeyDataType = KeyDataTypeToString(this.KeyValueObject.Type);
+            this.KeyDataSize = this.KeyValueObject.DataLength & 0x7fffffff; // because if 1 << 31 set, then volatile
+            if (this.KeyDataSize)
+            {
+                let KeyDataAddr = GetCellDataAddress(this.KeyHive, this.KeyValueObject.Data);
+                //log(hex(this.KeyValueObject.address));
+                this.KeyDataRaw = host.memory.readMemoryValues(KeyDataAddr, this.KeyDataSize, 1);
+                switch(this.KeyValueObject.Type)
+                {
+                    case REG_SZ:
+                    case REG_EXPAND_SZ:
+                        this.KeyData = host.memory.readWideString(KeyDataAddr, this.KeyDataSize);
+                        break;
+
+                    case REG_MULTI_SZ:
+                        this.KeyData = host.memory.readWideString(KeyDataAddr, this.KeyDataSize).replace("\0", "<NUL>");
+                        break;
+
+                    // todo: support more formats
+                }
+            }
+
             break;
 
         case CM_FAST_LEAF_SIGNATURE:
         case CM_HASH_LEAF_SIGNATURE:
-            this.KeyIndexObject  = host.createPointerObject(this.Address, "nt", "_CM_KEY_INDEX*");
+            this.KeyIndexObject  = host.createPointerObject(this.__Address, "nt", "_CM_KEY_INDEX*");
             break;
 
         default:
@@ -181,51 +225,92 @@ class KeyNode
     {
         let msg = '';
         if (this.KeyName) msg+= `${this.KeyName}`;
-        else msg+= `KeyNode(${hex(this.Address)}, ${this.Type})`;
+        else msg+= `KeyNode(${hex(this.__Address)}, ${this.Type})`;
         return msg;
     }
 
 
     get Subkeys()
     {
-        return this.__WalkChildren();
+        return this.__WalkSubkeys();
     }
 
 
-    *__WalkChildren()
+    __WalkSubkeys()
     {
         if(this.__Type != CM_KEY_NODE_SIGNATURE)
             return;
 
-        // for now, only storage -> i.e. [0] (volatile in index [1] of dual_table)
-        // todo: do volatile too
-        let Count = this.KeyNodeObject.SubKeyCounts[0];
-        //log(`${this.KeyName} has ${Count} subkeys`);
-        let CellIndex = this.KeyNodeObject.SubKeyLists[0];
-        //log(CellIndex);
-        let SubKeyNode = new KeyNode(CellIndex, this.KeyHive);
-        //log(`subkey table = ${SubKeyNode.Address.toString(16)}`);
-        let sz = sizeof("nt!_CM_KEY_INDEX");
+        return this.__WalkPermanentSubkeys();
+    }
 
-        for(let i=0; i<Count; i++)
+
+    *__WalkPermanentSubkeys()
+    {
+        // 0 -> permanent
+        // 1 -> volatile
+        for (let i = 0; i < 1; i++)
         {
-            //let SubKeyEntryHeader = host.createPointerObject(
-            //    SubKeyNode.Address.add(i * sz),
-            //    "nt",
-            //    "_CM_KEY_INDEX*"
-            //);
+            let Count = this.KeyNodeObject.SubKeyCounts[0];
+            //log(`${this.KeyName} has ${Count} subkeys`);
+            let CellIndex = this.KeyNodeObject.SubKeyLists[0];
 
-            let SubKeyEntry = host.createPointerObject(
-                SubKeyNode.Address.add(4).add(i * sizeof("nt!_CM_INDEX")),
-                "nt",
-                "_CM_INDEX*"
-                );
+            if (Count == 0 || CellIndex == 0xffffffff)
+                continue;
 
-            let SubKey = new KeyNode(SubKeyEntry.Cell, this.KeyHive);
-            yield SubKey;
+            let SubKeyNode = new KeyNode(CellIndex, this.KeyHive);
+
+            for(let i=0; i<Count; i++)
+            {
+                let SubKeyEntry = host.createPointerObject(
+                    SubKeyNode.__Address.add(4).add(i * sizeof("nt!_CM_INDEX")),
+                    "nt",
+                    "_CM_INDEX*"
+                    );
+
+                let SubKey = new KeyNode(SubKeyEntry.Cell, this.KeyHive);
+                yield SubKey;
+            }
         }
     }
 
+
+    get Values()
+    {
+        return this.__WalkValueList();
+    }
+
+
+    *__WalkValueList()
+    {
+        if(this.__Type != CM_KEY_NODE_SIGNATURE) // todo: check if CM_LINK_NODE_SIGNATURE too ?
+            return;
+
+        let Cell = this.KeyNodeObject.ValueList.List;
+        let Count = this.KeyNodeObject.ValueList.Count;
+        //log(`Cell=${hex(Cell)}, Count=${Count}`);
+
+        if (Cell == 0xffffffff || Count == 0)
+            return;
+
+        let value_list_address = GetCellDataAddress(this.KeyHive, Cell);
+        //log(`value_list_address=${hex(value_list_address)}`);
+
+        for(var i=0; i<Count; i++)
+        {
+            let cell = u16(value_list_address.add(4 * i));
+            //log(`[${i}/${Count}] cell=${cell}`);
+            let _value_address = GetCellDataAddress(this.KeyHive, cell);
+
+            let _type = u16(_value_address);
+            if (_type != CM_KEY_VALUE_SIGNATURE)
+                continue;
+
+            //log(`[${i}] value(address=${hex(_value_address)})`)
+            let Value = new KeyNode(cell, this.KeyHive);
+            yield Value;
+        }
+    }
 }
 
 
@@ -233,7 +318,7 @@ class KeyNode
 class Hive
 {
     /**
-     * A "Hive" is a collection of Bins
+     * A Hive is a collection of Bins
      */
     constructor(obj)
     {
@@ -241,10 +326,9 @@ class Hive
         this.HiveHandle = this.HiveObject.Hive; // type = _HHIVE
         assert(this.HiveHandle.Signature == CM_HIVE_SIGNATURE);
         this.HiveAddress = obj.address;
-        let path = obj.HiveRootPath;
-        this.Path = host.memory.readWideString(path.Buffer, path.Length/2);
+        this.MountPoint = readUnicodeString(obj.HiveRootPath);
         this.RootCellIndex = this.HiveHandle.BaseBlock.RootCell;
-        this.__FileName = this.Path.split("\\").slice(-1)[0];
+        this.__FileName = this.MountPoint.split("\\").slice(-1)[0];
         this.__KeyNode = undefined;
     }
 
@@ -257,9 +341,15 @@ class Hive
     }
 
 
+    get Name()
+    {
+        return this.__FileName;
+    }
+
+
     toString()
     {
-        return this.Path;
+        return this.MountPoint;
     }
 
 
@@ -273,21 +363,22 @@ class Hive
     {
         try
         {
-            return host.memory.readWideString(this.HiveObject.FileUserName.Buffer);
+            return readUnicodeString(this.HiveObject.FileUserName);
         } catch (e) {}
 
-        return "";
+        return undefined;
     }
 
 
     get [Symbol.metadataDescriptor]()
     {
         return {
-            Path: { Help: "The virtual full path of the hive." },
+            MountPoint: { Help: "The virtual full path of the hive." },
             HiveAddress: { Help: "Address of the _HHIVE object.", },
             HiveObject: { Help: "The CMHIVE object.", },
             BaseBlock: { Help: "Base block of the current hive.", },
             BackingFile: { Help: "Full path the file backing the hive (if any).", },
+            Name: { Help: "Last 31 UNICODE characters of the full path.", },
         };
     }
 }
@@ -301,7 +392,24 @@ class RegistryExplorer
      */
     constructor()
     {
+        if (g_RegistryRoot === undefined)
+        {
+            g_RegistryRoot = host.createPointerObject(
+                poi(host.getModuleSymbolAddress("nt", "CmpRegistryRootObject")),
+                "nt",
+                "_CM_KEY_BODY*"
+            );
+
+            assert(g_RegistryRoot.Type === CM_KEY_BODY_TYPE);
+        }
+
         this.Address = poi(host.getModuleSymbolAddress("nt", "CmpHiveListHead"));
+    }
+
+
+    toString()
+    {
+        return `RegistryExplorer (${this.Hives.Count()} hives)`;
     }
 
 
@@ -312,6 +420,8 @@ class RegistryExplorer
     {
         return this.__WalkChildren();
     }
+
+
 
     /**
      * Visit children nodes
@@ -356,9 +466,6 @@ class RegistryExplorer
 }
 
 
-
-
-
 class SessionModelParent
 {
     /**
@@ -383,17 +490,6 @@ class SessionModelParent
 }
 
 
-function test(addr_hive, index_node)
-{
-    let h = host.createPointerObject(i64(addr_hive), "nt", "_HHIVE*");
-    log(h.Signature.toString(16));
-    let i = i64(index_node);
-    log(i.toString(16));
-    var n = new KeyNode(i, h);
-    return n;
-}
-
-
 /**
  *
  */
@@ -407,8 +503,6 @@ function initializeScript()
             'Debugger.Models.Session'
         ),
         new host.apiVersionSupport(1, 3),
-
-        new host.functionAlias(test, "jstest"),
     ];
 }
 
