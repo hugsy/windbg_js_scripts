@@ -129,6 +129,7 @@ function GetCellAddress(KeyHive, Index)
     let MapTableEntry = Map.Directory[Table]; // nt!_HMAP_TABLE -> nt!_HMAP_ENTRY
     //log(`MapTableEntry=${hex(MapTableEntry.address)}`);
     let entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
+    //log(`entry_addr @ ${hex(entry.address)}`);
     let base_addr = entry.PermanentBinAddress.bitwiseAnd(~0x0f);
     let cell_addr = base_addr.add(Offset);
     //log(`cell_addr @ ${hex(cell_addr)}`);
@@ -141,32 +142,43 @@ function GetCellAddress(KeyHive, Index)
 
 function GetCellDataAddress(KeyHive, Index)
 {
-    let Address = GetCellAddress(KeyHive, Index).add(4); // i.e. sizeof(LONG) -> data size
+    let CellAddress = GetCellAddress(KeyHive, Index);
+    let DataAddress = CellAddress.add(4); // i.e. sizeof(LONG) -> data size
     // Data Size:
     // positive = free cell
     // negative = allocated cell (actual size is –Size)
-    return Address;
+    return DataAddress;
 }
 
 
 class KeyNode
 {
-    constructor(Index, KeyHive = undefined)
+    constructor(Index, KeyHive)
     {
         this.KeyHive = KeyHive ? KeyHive : g_RegistryRoot.KeyControlBlock.KeyHive;
 
-        this.__Address = GetCellDataAddress(this.KeyHive, Index);
-        //log(`node_address=${hex(this.Address)}`);
+        if(KeyHive.ViewMap.ProcessTuple.isNull === false)
+        {
+            let ProcessAddress = KeyHive.ViewMap.ProcessTuple.ProcessReference.address;
+            this.__Eprocess = host.createPointerObject(ProcessAddress, "nt", "_EPROCESS*");
+            let Pid = this.__Eprocess.UniqueProcessId.address;
+            system(`dx -s @$cursession.Processes.Where( x => x.Id == ${Pid} ).First().SwitchTo() `); // this is a horrible hack, couldn't find better to do simpler
+        }
 
+        this.__Address = GetCellDataAddress(this.KeyHive, Index);
+        //log(`node_address=${hex(this.__Address)}`);
         this.__Type = u16(this.__Address);
 
         switch (this.__Type)
         {
+
         case CM_LINK_NODE_SIGNATURE:
+            let LinkNode = host.createPointerObject(this.__Address, "nt", "_CM_KEY_NODE*");
+            this.__Address = GetCellDataAddress(LinkNode.ChildHiveReference.KeyHive, LinkNode.ChildHiveReference.KeyCell);
+
         case CM_KEY_NODE_SIGNATURE:
             this.KeyNodeObject = host.createPointerObject(this.__Address, "nt", "_CM_KEY_NODE*");
             this.KeyName = this.KeyNodeObject.NameLength > 0 ? host.memory.readString(this.KeyNodeObject.Name.address, this.KeyNodeObject.NameLength) : "";
-            // todo: for links use ChildHiveReference.{KeyCell,KeyHive}
             break;
 
         case CM_KEY_VALUE_SIGNATURE:
@@ -330,6 +342,13 @@ class Hive
         this.RootCellIndex = this.HiveHandle.BaseBlock.RootCell;
         this.__FileName = this.MountPoint.split("\\").slice(-1)[0];
         this.__KeyNode = undefined;
+        this.__Eprocess = undefined;
+
+        if(this.HiveHandle.ViewMap.ProcessTuple.isNull === false)
+        {
+            let ProcessAddress = this.HiveHandle.ViewMap.ProcessTuple.ProcessReference.address;
+            this.__Eprocess = host.createPointerObject(ProcessAddress, "nt", "_EPROCESS*");
+        }
     }
 
 
@@ -353,12 +372,6 @@ class Hive
     }
 
 
-    get BaseBlock()
-    {
-        return this.HiveHandle.BaseBlock;
-    }
-
-
     get BackingFile()
     {
         try
@@ -370,13 +383,18 @@ class Hive
     }
 
 
+    get BackingProcess()
+    {
+        return this.__Eprocess;
+    }
+
+
     get [Symbol.metadataDescriptor]()
     {
         return {
             MountPoint: { Help: "The virtual full path of the hive." },
             HiveAddress: { Help: "Address of the _HHIVE object.", },
             HiveObject: { Help: "The CMHIVE object.", },
-            BaseBlock: { Help: "Base block of the current hive.", },
             BackingFile: { Help: "Full path the file backing the hive (if any).", },
             Name: { Help: "Last 31 UNICODE characters of the full path.", },
         };
