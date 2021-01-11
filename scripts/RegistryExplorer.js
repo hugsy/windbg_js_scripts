@@ -229,10 +229,7 @@ class KeyNode
 
     toString()
     {
-        let msg = '';
-        if (this.KeyName) msg+= `${this.KeyName}`;
-        else msg+= `KeyNode(${hex(this.__Address)}, ${this.Type})`;
-        return msg;
+        return `KeyNode(${hex(this.__Address)}, ${this.Type})`;
     }
 
 
