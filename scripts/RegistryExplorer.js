@@ -74,17 +74,18 @@ const CM_HIVE_SIGNATURE       = 0xbee0bee0;
 const HCELL_TYPE_SHIFT = 31 ;
 const HCELL_TYPE_MASK = 0x80000000;
 const HCELL_TABLE_SHIFT = 21 ;
-const HCELL_TABLE_MASK = 0x7fe00000;
+//const HCELL_TABLE_MASK = 0x7fe00000;
+const HCELL_TABLE_MASK = 0x3ff00000;
 const HCELL_BLOCK_SHIFT = 12;
 const HCELL_BLOCK_MASK = 0x001ff000;
-const HCELL_OFFSET_SHIFT = 0;
 const HCELL_OFFSET_MASK = 0x00000fff;
 
-const GetCellType = x => (x & HCELL_TYPE_MASK) >> HCELL_TYPE_SHIFT; // Permanent / Volatile
-const GetCellTable = x => (x & HCELL_TABLE_MASK) >> HCELL_TABLE_SHIFT;
-const GetCellBlock = x => (x & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
-const GetCellOffset = x => x & HCELL_OFFSET_MASK;
+const GetCellType    = x => (x & HCELL_TYPE_MASK) >> HCELL_TYPE_SHIFT;   // Permanent / Volatile
+const GetCellTable   = x => (x & HCELL_TABLE_MASK) >> HCELL_TABLE_SHIFT;
+const GetCellBlock   = x => (x & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
+const GetCellOffset  = x => (x & HCELL_OFFSET_MASK);
 
+const KEY_DATA_LENGTH_MASK = 0x7fffffff;
 
 
 function KeyDataTypeToString(type)
@@ -123,20 +124,15 @@ function GetCellAddress(KeyHive, Index)
     let Table = GetCellTable(Index);
     let Block = GetCellBlock(Index);
     let Offset = GetCellOffset(Index);
-    //log(`GetCellDataAddress: version=${KeyHive.Version} hhive=${KeyHive.address.toString(16)} type=${Type} table=${Table} block=${Block} offset=${Offset}`);
-
+    //log(`GetCellDataAddress(Hive=${KeyHive.address.toString(16)}, Index=${Index}): type=${Type} table=${Table} block=${Block} offset=${Offset}`);
     let Map = KeyHive.Storage[Type].Map; // nt!_HMAP_DIRECTORY
     let MapTableEntry = Map.Directory[Table]; // nt!_HMAP_TABLE -> nt!_HMAP_ENTRY
-    //log(`MapTableEntry=${hex(MapTableEntry.address)}`);
-    let entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
-    //log(`entry_addr @ ${hex(entry.address)}`);
-    let base_addr = entry.PermanentBinAddress.bitwiseAnd(~0x0f);
-    let cell_addr = base_addr.add(Offset);
-    //log(`cell_addr @ ${hex(cell_addr)}`);
-    //let Bin = host.createPointerObject(base_addr, "nt", "_HBIN*");
-    //if (Bin.Signature != CM_BIN_SIGNATURE)
-    //    throw Error(`invalid bin signature ${hex(Bin.Signature)} for bin at ${hex(Bin.address)}`);
-    return cell_addr;
+    let Entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
+    //log(`Entry=${Entry.address}`);
+    let BinAddress = Entry.PermanentBinAddress.bitwiseAnd(~0x0f);
+    let CellAddress = BinAddress.add(Entry.BlockOffset).add(Offset);
+    //log(`GetCellDataAddress(Hive=${KeyHive.address.toString(16)}, Index=${Index}) = ${hex(CellAddress)}`);
+    return CellAddress;
 }
 
 
@@ -185,11 +181,10 @@ class KeyNode
             this.KeyValueObject  = host.createPointerObject(this.__Address, "nt", "_CM_KEY_VALUE*");
             this.KeyName = this.KeyValueObject.NameLength > 0 ? host.memory.readString(this.KeyValueObject.Name.address, this.KeyValueObject.NameLength) : "(Default)";
             this.KeyDataType = KeyDataTypeToString(this.KeyValueObject.Type);
-            this.KeyDataSize = this.KeyValueObject.DataLength & 0x7fffffff; // because if 1 << 31 set, then volatile
+            this.KeyDataSize = this.KeyValueObject.DataLength & KEY_DATA_LENGTH_MASK; // because if 1 << 31 set, then volatile
             if (this.KeyDataSize)
             {
                 let KeyDataAddr = GetCellDataAddress(this.KeyHive, this.KeyValueObject.Data);
-                //log(hex(this.KeyValueObject.address));
                 this.KeyDataRaw = host.memory.readMemoryValues(KeyDataAddr, this.KeyDataSize, 1);
                 switch(this.KeyValueObject.Type)
                 {
@@ -202,7 +197,7 @@ class KeyNode
                         this.KeyData = host.memory.readWideString(KeyDataAddr, this.KeyDataSize).replace("\0", "<NUL>");
                         break;
 
-                    // todo: support more formats
+                    // todo: support more types
                 }
             }
 
@@ -215,7 +210,6 @@ class KeyNode
 
         default:
             throw Error(`unknown key type ${hex(this.__Type)}`);
-            //break;
         }
     }
 
@@ -259,9 +253,7 @@ class KeyNode
 
     *__WalkPermanentSubkeys()
     {
-        // 0 -> permanent
-        // 1 -> volatile
-        for (let i = 0; i < 1; i++)
+        for (let i = 0; i < 1; i++) // make i < 2 to see the Volatile subkeys
         {
             let Count = this.KeyNodeObject.SubKeyCounts[0];
             //log(`${this.KeyName} has ${Count} subkeys`);
@@ -300,25 +292,20 @@ class KeyNode
 
         let Cell = this.KeyNodeObject.ValueList.List;
         let Count = this.KeyNodeObject.ValueList.Count;
-        //log(`Cell=${hex(Cell)}, Count=${Count}`);
 
         if (Cell == 0xffffffff || Count == 0)
             return;
 
         let value_list_address = GetCellDataAddress(this.KeyHive, Cell);
-        //log(`value_list_address=${hex(value_list_address)}`);
-
-        for(var i=0; i<Count; i++)
+        for(let i=0; i<Count; i++)
         {
             let cell = u16(value_list_address.add(4 * i));
-            //log(`[${i}/${Count}] cell=${cell}`);
             let _value_address = GetCellDataAddress(this.KeyHive, cell);
 
             let _type = u16(_value_address);
             if (_type != CM_KEY_VALUE_SIGNATURE)
                 continue;
 
-            //log(`[${i}] value(address=${hex(_value_address)})`)
             let Value = new KeyNode(cell, this.KeyHive);
             yield Value;
         }
@@ -374,11 +361,7 @@ class Hive
 
     get BackingFile()
     {
-        try
-        {
-            return readUnicodeString(this.HiveObject.FileUserName);
-        } catch (e) {}
-
+        try{ return readUnicodeString(this.HiveObject.FileUserName); } catch (e) {}
         return undefined;
     }
 
@@ -389,6 +372,13 @@ class Hive
     }
 
 
+    get BackingProcessName()
+    {
+        try{ return host.memory.readString(this.__Eprocess.ImageFileName, 15);  } catch (e) {}
+        return undefined;
+    }
+
+
     get [Symbol.metadataDescriptor]()
     {
         return {
@@ -396,6 +386,8 @@ class Hive
             HiveAddress: { Help: "Address of the _HHIVE object.", },
             HiveObject: { Help: "The CMHIVE object.", },
             BackingFile: { Help: "Full path the file backing the hive (if any).", },
+            BackingProcess: { Help: "Pointer to the backing _EPROCESS object (if any).", },
+            BackingProcessName: { Help: "Name of the backing _EPROCESS object (if any).", },
             Name: { Help: "Last 31 UNICODE characters of the full path.", },
         };
     }
@@ -466,7 +458,7 @@ class RegistryExplorer
             }
             catch(Exception)
             {
-                break;
+                // break;
             }
         }
     }
@@ -509,7 +501,7 @@ class SessionModelParent
 
 
 /**
- *
+ * Initialization function
  */
 function initializeScript()
 {

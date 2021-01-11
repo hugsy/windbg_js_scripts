@@ -102,9 +102,27 @@
     <ExtensionPackage>
         <Name>ObjectExplorer</Name>
         <Version>1.0.0.0</Version>
-        <Description>Explore objects from nt!ObpRootDirectoryObject directly from WinDbg via LINQ (WinObj-lie).</Description>
+        <Description>Explore objects from nt!ObpRootDirectoryObject directly from WinDbg via LINQ (WinObj-like).</Description>
         <Components>
             <ScriptComponent Name="ObjectExplorer.js" Type="Engine" File="..\scripts\ObjectExplorer.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Objects"/>
+                </ObjectExtensionList>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
+        <Name>RegistryExplorer</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Navigate the registry from WinDbg via LINQ (WinObj-like).</Description>
+        <Components>
+            <ScriptComponent Name="RegistryExplorer.js" Type="Engine" File="..\scripts\RegistryExplorer.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
