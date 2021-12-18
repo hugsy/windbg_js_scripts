@@ -403,7 +403,7 @@ function invokeScript()
  */
 function initializeScript()
 {
-    log("[+] Initializing `EnumApcs.js`...");
+    log("[+] Initializing `EnumApc.js`...");
     return [
         new host.functionAlias(SystemApc, "SystemApcs"),
         new host.namedModelParent(SessionModelExtension, "Debugger.Models.Session"),

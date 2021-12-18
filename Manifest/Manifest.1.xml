@@ -216,6 +216,32 @@
         </Components>
     </ExtensionPackage>
 
+    <ExtensionPackage>
+        <Name>EnumApc</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Enumerate APC in the current KD session.</Description>
+        <Components>
+            <ScriptComponent Name="EnumModules" Type="Engine" File="..\scripts\EnumApc.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="SystemApcs">
+                        <AliasItem>
+                            <Syntax>
+                                <![CDATA[!SystemApcs]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Enumerate APC in the current KD session.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
 
     <!--
     Um scripts  (loadtrigger -> user)
