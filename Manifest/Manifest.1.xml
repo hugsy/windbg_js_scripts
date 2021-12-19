@@ -221,12 +221,17 @@
         <Version>1.0.0.0</Version>
         <Description>Enumerate APC in the current KD session.</Description>
         <Components>
-            <ScriptComponent Name="EnumModules" Type="Engine" File="..\scripts\EnumApc.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="EnumApc" Type="Engine" File="..\scripts\EnumApc.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Objects"/>
+                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Objects"/>
+                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread" Property="Objects"/>
+                </ObjectExtensionList>
                 <FunctionAliases>
                     <FunctionAlias Name="SystemApcs">
                         <AliasItem>
