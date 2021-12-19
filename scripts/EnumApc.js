@@ -17,18 +17,9 @@ const ok   = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err  = x => log(`[-] ${x}`);
 const hex  = x => x.toString(16);
-const i64  = x => host.parseInt64(x);
-const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const sizeof = x => i64(system(`?? sizeof(${x})`)[0].split(" ")[2]);
-const  u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
-const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
-const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
-const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
-function ptrsize(){ return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize; }
-function pagesize(){ return host.namespace.Debugger.State.PseudoRegisters.General.pagesize; }
 function IsX64(){ return ptrsize() === 8;}
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
-function $(r){ return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
+
 
 
 
@@ -113,23 +104,6 @@ class ApcObject
 }
 
 
-class ApcIterator
-{
-    getDimensionality()
-    {
-        return 1;
-    }
-
-    getValueAt(idx)
-    {
-        for (let apc of this)
-        {
-        }
-        return undefined;
-    }
-}
-
-
 /**
  * Dump the APCs associated to a thread
  *
@@ -191,7 +165,7 @@ class ThreadApcIterator
 
     toString()
     {
-        return `Thread=0x${hex(this.Thread.address)}, ApcCount=${this.ApcCount}`;
+        return `Thread TID=${hex(this.Thread.Cid.UniqueThread.address)} @ ${hex(this.Thread.address)}, ApcCount=${this.ApcCount}`;
     }
 
     get ApcCount()
@@ -199,6 +173,14 @@ class ThreadApcIterator
         let count = 0;
         for(let Apc of this){ count++; }
         return count;
+    }
+
+    get [Symbol.metadataDescriptor]()
+    {
+        return {
+            ApcCount: { Help: "ApcCount"},
+            Process: { Help: "Process"},
+        };
     }
 }
 
