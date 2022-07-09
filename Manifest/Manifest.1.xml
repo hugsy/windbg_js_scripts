@@ -4,9 +4,35 @@
     Ke scripts  (loadtrigger -> kernel)
     -->
     <ExtensionPackage>
+        <Name>GetGdts</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Adds GDT information to current thread.</Description>
+        <Components>
+            <ScriptComponent Name="GetGdts" Type="Engine" File="..\scripts\GetGdts.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="GetGdts">
+                        <AliasItem>
+                            <Syntax><![CDATA[!LookAsides]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Adds GDT information to current thread.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
         <Name>BreakOnProcessCreate</Name>
         <Version>1.0.0.0</Version>
-        <Description>Get the SSDT as WinDBG DDM array.</Description>
+        <Description>Break on process creation.</Description>
         <Components>
             <ScriptComponent Name="BreakOnProcessCreate" Type="Engine" File="..\scripts\BreakOnProcessCreate.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
