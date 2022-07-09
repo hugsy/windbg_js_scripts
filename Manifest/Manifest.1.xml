@@ -4,6 +4,32 @@
     Ke scripts  (loadtrigger -> kernel)
     -->
     <ExtensionPackage>
+        <Name>BreakOnProcessCreate</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Get the SSDT as WinDBG DDM array.</Description>
+        <Components>
+            <ScriptComponent Name="BreakOnProcessCreate" Type="Engine" File="..\scripts\BreakOnProcessCreate.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="BreakOnNewProcess">
+                        <AliasItem>
+                            <Syntax><![CDATA[!LookAsides]]>
+                            </Syntax>
+                            <Description>
+                                <![CDATA[Break when a new process matching the argument is created, and switch to its context.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
         <Name>DumpLookasides</Name>
         <Version>1.0.0.0</Version>
         <Description>Get the SSDT as WinDBG DDM array.</Description>
