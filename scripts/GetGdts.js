@@ -108,15 +108,19 @@ class GdtEntry {
         this.__Register = register;
         this.__Index = index;
         this.__Address = this.__Register.add(this.__Index.multiply(8));
-        this.__Object = host.createPointerObject(
-            this.__Address,
-            "nt",
-            "_KGDTENTRY64*"
-        );
+        let _type = IsX64() ? "_KGDTENTRY64*" : "_KGDTENTRY*";
+        this.__Object = host.createPointerObject(this.__Address, "nt", _type);
+
+        // if it's a TSS, add the native object
+        if (this.Object.Bits.Type.bitwiseAnd(0b01011).compareTo(0b01011) == 0) {
+            let _type2 = IsX64() ? "_KTSS64*" : "_KTSS*";
+            this.Tss = host.createPointerObject(this.Base, "nt", _type2);
+        }
     }
 
+
     toString() {
-        return `GdtEntry(@${this.__Address.toString(16)}, Core=${this.__CoreIndex}, Type=${this.Type}, Description="${this.Description}")`;
+        return `GdtEntry(@${this.__Address.toString(16)}, CoreIndex=${this.__CoreIndex}, Type=${this.Type}, Description="${this.Description}")`;
     }
 
     get Address() {
@@ -127,7 +131,7 @@ class GdtEntry {
         return this.__Object;
     }
 
-    get Core() {
+    get CoreIndex() {
         return this.__CoreIndex;
     }
 
@@ -149,6 +153,23 @@ class GdtEntry {
         if (this.Object.Bits.Type.bitwiseAnd(0b11000).compareTo(0b11000) == 0)
             return "Code";
         return "Data";
+    }
+
+    get Base() {
+        if (IsX64()) {
+            // https://www.vergiliusproject.com/kernels/x64/Windows%2010%20%7C%202016/2110%2021H2%20(November%202021%20Update)/_KGDTENTRY64
+            let High = this.Object.Bytes.BaseHigh.bitwiseShiftLeft(24);
+            let Middle = this.Object.Bytes.BaseMiddle.bitwiseShiftLeft(16);
+            let Low = this.Object.BaseLow;
+            let Base = this.Object.BaseUpper.bitwiseShiftLeft(32);
+            return Base.bitwiseOr(High).bitwiseOr(Middle).bitwiseOr(Low);
+        } else {
+            // https://www.vergiliusproject.com/kernels/x86/Windows%2010/2110%2021H2%20(November%202021%20Update)/_KGDTENTRY
+            let High = this.Object.HighWord.Bytes.BaseHi.bitwiseShiftLeft(24);
+            let Middle = this.Object.HighWord.Bytes.BaseMid.bitwiseShiftLeft(16);
+            let Low = this.Object.BaseLow;
+            return High.bitwiseOr(Middle).bitwiseOr(Low);
+        }
     }
 
     IsPresent() {
@@ -240,6 +261,10 @@ class GdtIterator {
             this.SetCurrentProcessor(i);
             yield new host.indexedValue(new Gdt(i), [i]);
         }
+    }
+
+    toString() {
+        return `GdtIterator(NumProc=${this.NumberOfProcessors})`
     }
 
     getDimensionality() {
