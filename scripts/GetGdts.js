@@ -264,7 +264,7 @@ class Idt extends RegisterGeneric {
     }
 
     toString() {
-        return `Gdt(gdtr=@${this.Register.toString(16)}, Core=${this.CoreIndex})`;
+        return `Idt(idtr=@${this.Register.toString(16)}, Core=${this.CoreIndex})`;
     }
 }
 
