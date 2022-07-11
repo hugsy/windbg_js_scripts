@@ -111,7 +111,7 @@ class GdtEntry {
         let _type = IsX64() ? "_KGDTENTRY64*" : "_KGDTENTRY*";
         this.__Object = host.createPointerObject(this.__Address, "nt", _type);
 
-        // if it's a TSS, add the native object
+        // if it's a TSS type, add the native object
         if (this.Object.Bits.Type.bitwiseAnd(0b01011).compareTo(0b01011) == 0) {
             let _type2 = IsX64() ? "_KTSS64*" : "_KTSS*";
             this.Tss = host.createPointerObject(this.Base, "nt", _type2);
@@ -189,19 +189,13 @@ class GdtEntry {
 }
 
 
-/**
- * A GDT object
- * The instance is an iterable, whose key is the index of a valid entry, the value the GDT entry associated to this index
- */
-class Gdt {
-
+class RegisterGeneric {
     constructor(CoreIndex) {
         this.__CoreIndex = CoreIndex;
-        this.__gdtr = $("gdtr");
-        this.__TableEntries = $("gdtl");
         this.__MaxGdtSize = 65536;
         this.__MaxGdtEntries = this.__MaxGdtSize / 8;
-        assert(this.__TableEntries < this.__MaxGdtEntries);
+        this.__register = null; // must be defined
+        this.__registerl = null; // must be defined
     }
 
     get CoreIndex() {
@@ -209,24 +203,24 @@ class Gdt {
     }
 
     get Register() {
-        return this.__gdtr;
+        return this.__register;
     }
 
     get Size() {
-        return this.__TableEntries.multiply(8);
+        return this.__registerl.multiply(8);
     }
 
     get Entries() {
-        return this.__TableEntries;
+        return this.__registerl;
     }
 
     toString() {
-        return `Gdt(gdtr=@${this.__gdtr.toString(16)}, Core=${this.__CoreIndex})`;
+        throw new Error("Can't instantiate abstract class!");
     }
 
     *[Symbol.iterator]() {
-        for (let i = 0; i < this.__TableEntries; i++) {
-            let entry = new GdtEntry(this.__CoreIndex, this.__gdtr, i);
+        for (let i = 0; i < this.Entries; i++) {
+            let entry = new GdtEntry(this.CoreIndex, this.Register, i);
             if (entry.IsValid())
                 yield new host.indexedValue(entry, [i]);
         }
@@ -237,19 +231,49 @@ class Gdt {
     }
 
     getValueAt(index) {
-        assert(index < this.__TableEntries);
-        return new GdtEntry(this.__CoreIndex, this.__gdtr, index);
+        assert(index < this.Entries);
+        return new GdtEntry(this.__CoreIndex, this.Register, index);
     }
 }
 
 
 /**
- * Iterate through all GDTs.
- * The instance is an iterable, whose key is the processor number, the value the GDT associated to the processor
+ * A GDT object
+ * The instance is an iterable, whose key is the index of a valid entry, the value the GDT entry associated to this index
  */
-class GdtIterator {
+class Gdt extends RegisterGeneric {
+    constructor(CoreIndex) {
+        super(CoreIndex);
+        this.__register = $("gdtr");
+        this.__registerl = $("gdtl");
+        assert(this.__registerl < this.__MaxGdtEntries);
+    }
+
+    toString() {
+        return `Gdt(gdtr=@${this.Register.toString(16)}, Core=${this.CoreIndex})`;
+    }
+}
+
+
+class Idt extends RegisterGeneric {
+    constructor(CoreIndex) {
+        super(CoreIndex);
+        this.__register = $("idtr");
+        this.__registerl = $("idtl");
+        assert(this.__registerl < this.__MaxGdtEntries);
+    }
+
+    toString() {
+        return `Gdt(gdtr=@${this.Register.toString(16)}, Core=${this.CoreIndex})`;
+    }
+}
+
+
+
+class GenericIterator {
     constructor() {
         this.__NumberOfProcessors = u32(host.getModuleSymbolAddress("nt", "KeNumberProcessors"));
+        this.__entryType = null;
     }
 
     get NumberOfProcessors() {
@@ -259,12 +283,13 @@ class GdtIterator {
     *[Symbol.iterator]() {
         for (let i = 0; i < this.__NumberOfProcessors; i++) {
             this.SetCurrentProcessor(i);
-            yield new host.indexedValue(new Gdt(i), [i]);
+            yield new host.indexedValue(new this.__entryType(i), [i]);
         }
     }
 
     toString() {
-        return `GdtIterator(NumProc=${this.NumberOfProcessors})`
+        throw new Error("Can't instantiate abstract class!");
+
     }
 
     getDimensionality() {
@@ -273,12 +298,41 @@ class GdtIterator {
 
     getValueAt(core) {
         assert(core < this.__NumberOfProcessors);
+        assert(this.__entryType !== null);
         this.SetCurrentProcessor(core);
-        return new Gdt(core);
+        return new this.__entryType(core);
     }
 
     SetCurrentProcessor(Index) {
         system(`~${Index}s`);
+    }
+}
+
+
+/**
+ * Iterate through all GDTs.
+ * The instance is an iterable, whose key is the processor number, the value the GDT associated to the processor
+ */
+class GdtIterator extends GenericIterator {
+    constructor() {
+        super();
+        this.__entryType = Gdt;
+    }
+
+    toString() {
+        return `GdtIterator(NumProc=${this.NumberOfProcessors})`
+    }
+}
+
+
+class IdtIterator extends GenericIterator {
+    constructor() {
+        super();
+        this.__entryType = Idt;
+    }
+
+    toString() {
+        return `IdtIterator(NumProc=${this.NumberOfProcessors})`
     }
 }
 
@@ -290,14 +344,24 @@ class GdtExtension {
     get GlobalDescriptorTable() {
         return new GdtIterator();
     }
+
+    get InterruptDescriptorTable() {
+        return new IdtIterator();
+    }
 }
 
 
 /**
- * Dump the GDT for all cores
+ * Dump the IDT/GDT for all cores
  */
-function invokeScript() {
-    return new GdtIterator();
+function invokeScript(type) {
+    if (type === "idt") {
+        return new IdtIterator();
+    }
+    else {
+
+        return new GdtIterator();
+    }
 }
 
 
@@ -305,7 +369,7 @@ function invokeScript() {
  *
  */
 function initializeScript() {
-    log("[+] Creating the variable `GlobalDescriptorTable` to each thread...");
+    log("[+] Creating the variables `GlobalDescriptorTable` and `InterruptDescriptorTable` to each thread...");
 
     return [
         new host.namedModelParent(GdtExtension, "Debugger.Models.Thread"),
