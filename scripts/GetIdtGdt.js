@@ -8,7 +8,8 @@
 
 /**
  *
- * Integrate the GDT to DDM
+ * Integrate the GDT & IDT to DDM as part of the current thread context
+ * Also creates `@$Gdt()` and `@$Idt()` indexed array
  *
  */
 
@@ -110,17 +111,37 @@ class GdtEntry {
         this.__Address = this.__Register.add(this.__Index.multiply(8));
         let _type = IsX64() ? "_KGDTENTRY64*" : "_KGDTENTRY*";
         this.__Object = host.createPointerObject(this.__Address, "nt", _type);
+        this.__typeName = "GdtEntry";
 
         // if it's a TSS type, add the native object
         if (this.Object.Bits.Type.bitwiseAnd(0b01011).compareTo(0b01011) == 0) {
             let _type2 = IsX64() ? "_KTSS64*" : "_KTSS*";
             this.Tss = host.createPointerObject(this.Base, "nt", _type2);
         }
+
+        // if it's a Interrupt Gate type, add the function it points to
+        if (this.Object.Bits.Type.bitwiseAnd(0b01110).compareTo(0b01110) == 0) {
+            this.Idt = host.createPointerObject(
+                this.__Register.add(this.__Index * 16),
+                "nt",
+                "_KIDTENTRY64 *"
+            );
+            this.GateAddress = this.Idt.OffsetHigh.bitwiseShiftLeft(32).bitwiseOr(
+                this.Idt.OffsetMiddle.bitwiseShiftLeft(16).bitwiseOr(this.Idt.OffsetLow)
+            );
+            this.Symbol = GetSymbolFromAddress(this.GateAddress);
+            this.__typeName = "IdtEntry";
+        }
     }
 
-
     toString() {
-        return `GdtEntry(@${this.__Address.toString(16)}, CoreIndex=${this.__CoreIndex}, Type=${this.Type}, Description="${this.Description}")`;
+        let msg = `${this.__typeName}(@${this.__Address.toString(16)}, CoreIndex=${this.__CoreIndex}, Type=${this.Type}, Description="${this.Description}"`;
+        if (this.__typeName === "IdtEntry") {
+            msg += `, Routine=${this.Symbol}`;
+        }
+        msg += ')';
+        return msg;
+
     }
 
     get Address() {
@@ -337,6 +358,40 @@ class IdtIterator extends GenericIterator {
 }
 
 
+function* GdtAccessHelper(Index) {
+    if (!IsKd() || !IsX64()) {
+        err("Must run in Kd x64");
+        return;
+    }
+
+    let it = new GdtIterator();
+    if (Index === undefined) {
+        for (const item of it) {
+            yield item;
+        }
+    }
+
+    return it[Index];
+}
+
+
+function* IdtAccessHelper(Index) {
+    if (!IsKd() || !IsX64()) {
+        err("Must run in Kd x64");
+        return;
+    }
+
+    let it = new IdtIterator();
+    if (Index === undefined) {
+        for (const item of it) {
+            yield item;
+        }
+    }
+
+    yield it[Index];
+}
+
+
 /**
  * Declare the extension as part of the DDM, under Thread model
  */
@@ -359,7 +414,6 @@ function invokeScript(type) {
         return new IdtIterator();
     }
     else {
-
         return new GdtIterator();
     }
 }
@@ -369,18 +423,14 @@ function invokeScript(type) {
  *
  */
 function initializeScript() {
-    log("[+] Creating the variables `GlobalDescriptorTable` and `InterruptDescriptorTable` to each thread...");
+    ok("Creating the variables `GlobalDescriptorTable` and `InterruptDescriptorTable` to each thread...");
 
     return [
+        new host.apiVersionSupport(1, 3),
         new host.namedModelParent(GdtExtension, "Debugger.Models.Thread"),
-        new host.apiVersionSupport(1, 3)
+
+        new host.functionAlias(GdtAccessHelper, "Gdt"),
+        new host.functionAlias(IdtAccessHelper, "Idt"),
     ];
 
-}
-
-
-/**
- *
- */
-function uninitializeScript() {
 }

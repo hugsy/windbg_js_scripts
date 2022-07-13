@@ -4,24 +4,31 @@
     Ke scripts  (loadtrigger -> kernel)
     -->
     <ExtensionPackage>
-        <Name>GetGdts</Name>
+        <Name>GetIdtGdt</Name>
         <Version>1.0.0.0</Version>
         <Description>Adds GDT information to current thread.</Description>
         <Components>
-            <ScriptComponent Name="GetGdts" Type="Engine" File="..\scripts\GetGdts.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="GetIdtGdt" Type="Engine" File="..\scripts\GetIdtGdt.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
+                <ObjectExtensionList>
+                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread" Property="GlobalDescriptorTable"/>
+                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread" Property="InterruptDescriptorTable"/>
+                </ObjectExtensionList>
                 <FunctionAliases>
-                    <FunctionAlias Name="GetGdts">
+                    <FunctionAlias Name="GdtAccessHelper">
                         <AliasItem>
-                            <Syntax><![CDATA[!LookAsides]]>
-                            </Syntax>
-                            <Description>
-                                <![CDATA[Adds GDT information to current thread.]]>
-                            </Description>
+                            <Syntax><![CDATA[!Gdt]]></Syntax>
+                            <Description><![CDATA[Adds GDT information to current thread.]]></Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                    <FunctionAlias Name="IdtAccessHelper">
+                        <AliasItem>
+                            <Syntax><![CDATA[!Idt]]></Syntax>
+                            <Description><![CDATA[Adds IDT information to current thread.]]></Description>
                         </AliasItem>
                     </FunctionAlias>
                 </FunctionAliases>
@@ -206,33 +213,6 @@
                             </Syntax>
                             <Description>
                                 <![CDATA[Dumps all the silo monitors]]>
-                            </Description>
-                        </AliasItem>
-                    </FunctionAlias>
-                </FunctionAliases>
-            </ScriptComponent>
-        </Components>
-    </ExtensionPackage>
-
-    <ExtensionPackage>
-        <Name>GetInterruptDescriptorTable</Name>
-        <Version>1.0.0.0</Version>
-        <Description>Get the Interrupt Descriptor Table as WinDBG convience array.</Description>
-        <Components>
-            <ScriptComponent Name="GetInterruptDescriptorTable" Type="Engine" File="..\scripts\GetInterruptDescriptorTable.js" FilePathKind="RepositoryRelative">
-                <LoadTriggers>
-                    <TriggerSet>
-                        <TargetTrigger Type="Kernel" />
-                    </TriggerSet>
-                </LoadTriggers>
-                <FunctionAliases>
-                    <FunctionAlias Name="Idt">
-                        <AliasItem>
-                            <Syntax>
-                                <![CDATA[!Idt [IntNum]]>
-                            </Syntax>
-                            <Description>
-                                <![CDATA[With no argument, dumps the interrupt table. When provided an index, dumps the entry.]]>
                             </Description>
                         </AliasItem>
                     </FunctionAlias>
