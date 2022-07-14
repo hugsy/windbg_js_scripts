@@ -102,46 +102,25 @@ const GDT_TYPES_X64 = Object.assign({}, GDT_TYPES_CODE_DATA, GDT_TYPES_SYSTEM_X6
 const GDT_TYPES_X86 = Object.assign({}, GDT_TYPES_CODE_DATA, GDT_TYPES_SYSTEM_X86);
 
 
-class GdtEntry {
+class EntryGeneric {
 
     constructor(core, register, index) {
         this.__CoreIndex = core;
         this.__Register = register;
         this.__Index = index;
-        this.__Address = this.__Register.add(this.__Index.multiply(8));
-        let _type = IsX64() ? "_KGDTENTRY64*" : "_KGDTENTRY*";
-        this.__Object = host.createPointerObject(this.__Address, "nt", _type);
-        this.__typeName = "GdtEntry";
 
-        // if it's a TSS type, add the native object
-        if (this.Object.Bits.Type.bitwiseAnd(0b01011).compareTo(0b01011) == 0) {
-            let _type2 = IsX64() ? "_KTSS64*" : "_KTSS*";
-            this.Tss = host.createPointerObject(this.Base, "nt", _type2);
-        }
-
-        // if it's a Interrupt Gate type, add the function it points to
-        if (this.Object.Bits.Type.bitwiseAnd(0b01110).compareTo(0b01110) == 0) {
-            this.Idt = host.createPointerObject(
-                this.__Register.add(this.__Index * 16),
-                "nt",
-                "_KIDTENTRY64 *"
-            );
-            this.GateAddress = this.Idt.OffsetHigh.bitwiseShiftLeft(32).bitwiseOr(
-                this.Idt.OffsetMiddle.bitwiseShiftLeft(16).bitwiseOr(this.Idt.OffsetLow)
-            );
-            this.Symbol = GetSymbolFromAddress(this.GateAddress);
-            this.__typeName = "IdtEntry";
-        }
+        // Must be defined
+        this.__typeName = null;
+        this.__Address = null;
+        this.__Object = null;
     }
 
     toString() {
-        let msg = `${this.__typeName}(@${this.__Address.toString(16)}, CoreIndex=${this.__CoreIndex}, Type=${this.Type}, Description="${this.Description}"`;
-        if (this.__typeName === "IdtEntry") {
-            msg += `, Routine=${this.Symbol}`;
-        }
-        msg += ')';
-        return msg;
+        throw new Error("Can't instantiate abstract class!");
+    }
 
+    get Name() {
+        return this.__typeName;
     }
 
     get Address() {
@@ -169,9 +148,10 @@ class GdtEntry {
         // 1 -> Code & Data
         if (this.IsValid() === false)
             return "Invalid";
-        if (this.Object.Bits.Type.bitwiseAnd(0b10000).compareTo(0b10000) != 0)
+        let TypeBits = this.Object.Bits ? this.Object.Bits.Type : this.Object.Type;
+        if (TypeBits.bitwiseAnd(0b10000).compareTo(0b10000) != 0)
             return "System";
-        if (this.Object.Bits.Type.bitwiseAnd(0b11000).compareTo(0b11000) == 0)
+        if (TypeBits.bitwiseAnd(0b11000).compareTo(0b11000) == 0)
             return "Code";
         return "Data";
     }
@@ -194,11 +174,34 @@ class GdtEntry {
     }
 
     IsPresent() {
-        return this.Object.Bits.Present === 1;
+        let PresentBit = this.Object.Bits ? this.Object.Bits.Present : this.Object.Present;
+        return PresentBit === 1;
     }
 
     IsValid() {
-        return this.IsPresent() || this.Object.Bits.Type !== 0;
+        let TypeBits = this.Object.Bits ? this.Object.Bits.Type : this.Object.Type;
+        return this.IsPresent() || TypeBits !== 0;
+    }
+}
+
+class GdtEntry extends EntryGeneric {
+
+    constructor(core, register, index) {
+        super(core, register, index);
+        let __type = IsX64() ? "_KGDTENTRY64*" : "_KGDTENTRY*";
+        this.__Address = this.__Register.add(this.__Index.multiply(8));
+        this.__Object = host.createPointerObject(this.__Address, "nt", __type);
+        this.__typeName = "GdtEntry";
+
+        // if it's a Task Segment Selector type, add the native object
+        if (this.Object.Bits.Type.bitwiseAnd(0b01011).compareTo(0b01011) == 0) {
+            let __type2 = IsX64() ? "_KTSS64*" : "_KTSS*";
+            this.Tss = host.createPointerObject(this.Base, "nt", __type2);
+        }
+    }
+
+    toString() {
+        return `${this.Name}(@${this.Address.toString(16)}, CoreIndex=${this.CoreIndex}, Type=${this.Type}, Description="${this.Description}")`;
     }
 
     IsConforming() {
@@ -206,17 +209,47 @@ class GdtEntry {
         const bHasConformingFlag = bHasCodeFlag & 0b1000;
         return (this.Object.Bits.Type.bitwiseAnd(bHasConformingFlag) === bHasConformingFlag);
     }
+}
 
+
+class IdtEntry extends EntryGeneric {
+
+    constructor(core, register, index) {
+        super(core, register, index);
+
+        let __type = IsX64() ? "_KIDTENTRY64 *" : "_KIDTENTRY *";
+        this.__Address = this.__Register.add(this.__Index.multiply(16));
+        this.__Object = host.createPointerObject(this.__Address, "nt", __type);
+        this.__typeName = "IdtEntry";
+
+        // if it's a Interrupt Gate type, add the function it points to
+        assert(this.Object.Type.bitwiseAnd(0b01110).compareTo(0b01110) == 0);
+
+        this.GateAddress = this.Object.OffsetHigh.bitwiseShiftLeft(32).bitwiseOr(
+            this.Object.OffsetMiddle.bitwiseShiftLeft(16).bitwiseOr(this.Object.OffsetLow)
+        );
+    }
+
+    toString() {
+        return `${this.Name}(@${this.__Address.toString(16)}, CoreIndex=${this.CoreIndex}, Type=${this.Type}, Symbol="${this.Symbol}")`;
+    }
+
+    get Symbol() {
+        return GetSymbolFromAddress(this.GateAddress);
+    }
 }
 
 
 class RegisterGeneric {
-    constructor(CoreIndex) {
+    constructor(CoreIndex, cls) {
         this.__CoreIndex = CoreIndex;
         this.__MaxGdtSize = 65536;
         this.__MaxGdtEntries = this.__MaxGdtSize / 8;
-        this.__register = null; // must be defined
-        this.__registerl = null; // must be defined
+        this.__cls = cls;
+
+        // Below must be defined
+        this.__register = null;
+        this.__registerl = null;
     }
 
     get CoreIndex() {
@@ -241,7 +274,7 @@ class RegisterGeneric {
 
     *[Symbol.iterator]() {
         for (let i = 0; i < this.Entries; i++) {
-            let entry = new GdtEntry(this.CoreIndex, this.Register, i);
+            let entry = new this.__cls(this.CoreIndex, this.Register, i);
             if (entry.IsValid())
                 yield new host.indexedValue(entry, [i]);
         }
@@ -253,7 +286,7 @@ class RegisterGeneric {
 
     getValueAt(index) {
         assert(index < this.Entries);
-        return new GdtEntry(this.__CoreIndex, this.Register, index);
+        return new this.__cls(this.__CoreIndex, this.Register, index);
     }
 }
 
@@ -264,7 +297,7 @@ class RegisterGeneric {
  */
 class Gdt extends RegisterGeneric {
     constructor(CoreIndex) {
-        super(CoreIndex);
+        super(CoreIndex, GdtEntry);
         this.__register = $("gdtr");
         this.__registerl = $("gdtl");
         assert(this.__registerl < this.__MaxGdtEntries);
@@ -278,7 +311,7 @@ class Gdt extends RegisterGeneric {
 
 class Idt extends RegisterGeneric {
     constructor(CoreIndex) {
-        super(CoreIndex);
+        super(CoreIndex, IdtEntry);
         this.__register = $("idtr");
         this.__registerl = $("idtl");
         assert(this.__registerl < this.__MaxGdtEntries);
