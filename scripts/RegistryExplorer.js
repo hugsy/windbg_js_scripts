@@ -124,14 +124,11 @@ function GetCellAddress(KeyHive, Index)
     let Table = GetCellTable(Index);
     let Block = GetCellBlock(Index);
     let Offset = GetCellOffset(Index);
-    //log(`GetCellDataAddress(Hive=${KeyHive.address.toString(16)}, Index=${Index}): type=${Type} table=${Table} block=${Block} offset=${Offset}`);
     let Map = KeyHive.Storage[Type].Map; // nt!_HMAP_DIRECTORY
     let MapTableEntry = Map.Directory[Table]; // nt!_HMAP_TABLE -> nt!_HMAP_ENTRY
     let Entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
-    //log(`Entry=${Entry.address}`);
     let BinAddress = Entry.PermanentBinAddress.bitwiseAnd(~0x0f);
     let CellAddress = BinAddress.add(Entry.BlockOffset).add(Offset);
-    //log(`GetCellDataAddress(Hive=${KeyHive.address.toString(16)}, Index=${Index}) = ${hex(CellAddress)}`);
     return CellAddress;
 }
 
@@ -149,8 +146,9 @@ function GetCellDataAddress(KeyHive, Index)
 
 class KeyNode
 {
-    constructor(Index, KeyHive)
+    constructor(Index, KeyHive, Parent)
     {
+        this.__Parent = Parent;
         this.KeyHive = KeyHive ? KeyHive : g_RegistryRoot.KeyControlBlock.KeyHive;
 
         if(KeyHive.ViewMap.ProcessTuple.isNull === false)
@@ -229,9 +227,28 @@ class KeyNode
 
     toString()
     {
-        return `KeyNode(${hex(this.__Address)}, ${this.Type})`;
+        let Name = this.Name() === "" ? "" : `"${this.Name()}", `;
+        return `KeyNode(${hex(this.__Address)}, ${Name}${this.Type})`;
     }
 
+    get Name()
+    {
+        return this.KeyName || "";
+    }
+
+    get Path()
+    {
+        let Path = new Array();
+        let Node = this;
+
+        while (Node.__Parent !== null);
+        {
+            Path.push(Node.Name());
+            Node = Node.__Parent;
+        }
+        Path.reverse();
+        return Path.join("\\");
+    }
 
     get Subkeys()
     {
@@ -269,7 +286,7 @@ class KeyNode
                     "_CM_INDEX*"
                     );
 
-                let SubKey = new KeyNode(SubKeyEntry.Cell, this.KeyHive);
+                let SubKey = new KeyNode(SubKeyEntry.Cell, this.KeyHive, this);
                 yield SubKey;
             }
         }
@@ -303,7 +320,7 @@ class KeyNode
             if (_type != CM_KEY_VALUE_SIGNATURE)
                 continue;
 
-            let Value = new KeyNode(cell, this.KeyHive);
+            let Value = new KeyNode(cell, this.KeyHive, this);
             yield Value;
         }
     }
@@ -339,7 +356,7 @@ class Hive
     get RootNode()
     {
         if (this.__KeyNode === undefined)
-            this.__KeyNode = new KeyNode(this.RootCellIndex, this.HiveHandle);
+            this.__KeyNode = new KeyNode(this.RootCellIndex, this.HiveHandle, null);
         return this.__KeyNode;
     }
 
