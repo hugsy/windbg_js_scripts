@@ -187,6 +187,9 @@ class ObjectDirectoryEntry {
             this.Children = new ObjectDirectory(this.NativeObject, this.Path).Children;
         }
 
+        if (this.TypeName == "SymbolicLink") {
+            this.LinkTarget = this.NativeObject.LinkTarget.toString();
+        }
     }
 
     get TypeName() {
@@ -226,9 +229,6 @@ class ObjectDirectoryEntry {
         let DesiredAccess = 1 << DesiredAccessBit;
         let Index = this.ObjectHeader.InfoMask.bitwiseAnd(DesiredAccess | (DesiredAccess - 1));
         return ObpInfoMaskToOffset[Index];
-    }
-
-    *__Walk() {
     }
 
     /**
