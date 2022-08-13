@@ -86,7 +86,6 @@ const TypeToStruct = {
     "IRTimer": ["nt", "_"],
     "Key": ["nt", "_"],
     "KeyedEvent": ["nt", "_"],
-    "Mutant": ["nt", "_"],
     "NdisCmState": ["nt", "_"],
     "PcwObject": ["nt", "_"],
     "PowerRequest": ["nt", "_"],
@@ -115,12 +114,16 @@ function GetObjectBodyAddress(HeaderAddress) {
     return HeaderAddress.add(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
 }
 
-function GetTypeFromIndex(idx) {
-    let ObTypeIndexTable = host.getModuleSymbol(
-        "nt",
-        "ObTypeIndexTable",
-        "_OBJECT_TYPE*[]"
-    );
+function GetTypeFromIndex(idx, typeAddr = null) {
+    let ObTypeIndexTable = host.getModuleSymbol("nt", "ObTypeIndexTable", "_OBJECT_TYPE*[]");
+    if (typeAddr != null) {
+        //
+        // This only exist for Win10/Win11, do the cookie dance
+        //
+        let ObHeaderCookie = host.getModuleSymbol("nt", "ObHeaderCookie", "unsigned char[]");
+        let AddressByte = typeAddr.bitwiseShiftRight(8).bitwiseAnd(0xff);
+        idx = ObHeaderCookie[0] ^ AddressByte ^ idx;
+    }
     return ObTypeIndexTable[idx];
 }
 
@@ -143,15 +146,16 @@ class ObjectDirectoryEntry {
         let ObjectAddress = objectDirectoryEntry.Object.address;
         let ObjectHeaderAddress = GetObjectHeaderAddress(ObjectAddress);
         this.ObjectHeader = host.createTypedObject(ObjectHeaderAddress, "nt", "_OBJECT_HEADER"); // nt!_OBJECT_HEADER
-        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex); // nt!_OBJECT_TYPE
-        this.__TypeName = this.ObjectType.Name.toString().slice(1, -1);
+        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex, ObjectHeaderAddress); // nt!_OBJECT_TYPE
+        this.TypeName = this.ObjectType.Name.toString().slice(1, -1);
         this.OptionalHeaders = {};
 
-        let StructObj = TypeToStruct[this.__TypeName];
         try {
+            let StructObj = TypeToStruct[this.TypeName];
             this.NativeObject = host.createTypedObject(ObjectAddress, StructObj[0], StructObj[1]);
         }
         catch (e) {
+            log(e);
             this.NativeObject = ObjectAddress;
         }
 
@@ -190,10 +194,6 @@ class ObjectDirectoryEntry {
         if (this.TypeName == "SymbolicLink") {
             this.LinkTarget = this.NativeObject.LinkTarget.toString();
         }
-    }
-
-    get TypeName() {
-        return this.__TypeName;
     }
 
     get Name() {
@@ -251,9 +251,10 @@ class ObjectDirectoryEntry {
         return {
             Parent: { Help: "Pointer to the parent WinObj node.", },
             Name: { Help: "Name of the current node.", },
-            Type: { Help: "The type of the current node.", },
+            TypeName: { Help: "Name of the current node type.", },
+            ObjectType: { Help: "The type of the current node.", },
             ObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
-            Object: { Help: "Pointer to the native Windows structure.", },
+            NativeObject: { Help: "Pointer to the underlying object.", },
         };
     }
 }
