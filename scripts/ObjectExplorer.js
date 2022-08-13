@@ -291,14 +291,30 @@ class ObjectDirectoryEntry {
      * Help
      */
     get [Symbol.metadataDescriptor]() {
-        return {
+        let attr = {
             Parent: { Help: "Pointer to the parent WinObj node.", },
             Name: { Help: "Name of the current node.", },
+            Path: { Help: "Full path to the current node.", },
             TypeName: { Help: "Name of the current node type.", },
             ObjectType: { Help: "The type of the current node.", },
             ObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
             NativeObject: { Help: "Pointer to the underlying object.", },
+            HasCreatorInfo: { Help: "Boolean flag to indicate if the _OBJECT_HEADER_CREATOR_INFO optional header is declared.", },
+            HasNameInfo: { Help: "Boolean flag to indicate if the _OBJECT_HEADER_NAME_INFO optional header is declared.", },
+            HasHandleInfo: { Help: "Boolean flag to indicate if the _OBJECT_HEADER_HANDLE_INFO optional header is declared.", },
+            HasQuotaInfo: { Help: "Boolean flag to indicate if the _OBJECT_HEADER_QUOTA_INFO optional header is declared.", },
+            HasProcessInfo: { Help: "Boolean flag to indicate if the _OBJECT_HEADER_PROCESS_INFO optional header is declared.", },
         };
+
+        if (this.TypeName == "Directory") {
+            attr[Children] = { Help: "Browse the child objects" };
+        }
+
+        if (this.TypeName == "SymbolicLink") {
+            attr[LinkTarget] = { Help: "Path to the symbolic link target" };
+        }
+
+        return attr;
     }
 }
 
@@ -368,44 +384,13 @@ class ObjectDirectory {
 
 
     /**
-     * Lookup a name in this object directory
-     *
-     * @param {String} childrenName Object name relative to this directory
-     */
-    LookupByName(childrenName) {
-        var currentObject = this;
-
-        for (var namePart of childrenName.split("\\")) {
-            namePart = namePart.toLowerCase();
-
-            var found = false;
-
-            for (var children of currentObject.Children) {
-                if (children.Name.toLowerCase() == namePart) {
-                    found = true;
-                    currentObject = children;
-                    break;
-                }
-            }
-
-            if (!found) {
-                return null;
-            }
-        }
-
-        return currentObject;
-    }
-
-    /**
      * Help
      */
     get [Symbol.metadataDescriptor]() {
         return {
             Parent: { Help: "Pointer to the parent WinObj node.", },
-            Name: { Help: "Name of the current node.", },
-            Type: { Help: "The type of the current node.", },
-            ObjectHeader: { Help: "Pointer to the Windows Object header structure.", },
-            Object: { Help: "Pointer to the native Windows structure.", },
+            Path: { Help: "Path to the current directory.", },
+            Object: { Help: "Attribute to the OBJECT_DIRECTORY native object.", },
             Children: { Help: "Enumerate all the children to this node.", }
         };
     }
