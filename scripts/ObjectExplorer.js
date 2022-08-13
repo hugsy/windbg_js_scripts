@@ -1,5 +1,5 @@
 /// <reference path="../extra/JSProvider.d.ts" />
-"use strict";
+// "use strict";
 
 /**
  *
@@ -16,6 +16,7 @@ const ok = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err = x => log(`[-] ${x}`);
 const hex = x => x.toString(16);
+const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 
 const TypeToStruct = {
     //
@@ -106,6 +107,47 @@ const TypeToStruct = {
     */
 }
 
+class WindowsVersion {
+    constructor() {
+        this.__Major = null;
+        this.__Release = null;
+    }
+
+    __ResetValues() {
+        // hack: usually follow the same format
+        // - 7 : Windows 7 Kernel Version 7601 (Service Pack 1) MP (1 procs) Free x64
+        // - 8.1 : Windows 8.1 Kernel Version 9600 MP (1 procs) Free x64
+        // - 10 : Windows 10 Kernel Version 18362 MP (1 procs) Free x64
+        // - 11 : Windows 10 Kernel Version 22000 MP (2 procs) Free x64
+        let version_line = system("version")[0];
+        this.__Major = version_line.match(/^Windows ([0-9\.]+) Kernel Version/)[1];
+        this.__Release = version_line.match(/Kernel Version ([0-9\.]+) /)[1];
+    }
+
+    get Major() {
+        if (this.__Major == null) {
+            this.__ResetValues();
+        }
+        return this.__Major;
+    }
+
+    get Release() {
+        if (this.__Release == null) {
+            this.__ResetValues();
+        }
+        return this.__Release;
+    }
+
+    toString() {
+        return `Windows ${this.Major} (Release: ${this.Release})`;
+    }
+}
+
+//
+// Because of this, strict mode has to be turned off
+//
+g_Version = new WindowsVersion();
+
 function GetObjectHeaderAddress(ObjectAddress) {
     return ObjectAddress.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
 }
@@ -114,7 +156,7 @@ function GetObjectBodyAddress(HeaderAddress) {
     return HeaderAddress.add(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
 }
 
-function GetTypeFromIndex(idx, typeAddr = null) {
+function GetTypeFromIndex(idx, typeAddr) {
     let ObTypeIndexTable = host.getModuleSymbol("nt", "ObTypeIndexTable", "_OBJECT_TYPE*[]");
     if (typeAddr != null) {
         //
@@ -138,6 +180,7 @@ class ObjectDirectoryEntry {
      * Create a new object entry
      */
     constructor(parent, objectDirectoryEntry) {
+        let WindowsRelease = g_Version.Release;
         //
         // Set the current WinObj parent
         //
@@ -146,16 +189,16 @@ class ObjectDirectoryEntry {
         let ObjectAddress = objectDirectoryEntry.Object.address;
         let ObjectHeaderAddress = GetObjectHeaderAddress(ObjectAddress);
         this.ObjectHeader = host.createTypedObject(ObjectHeaderAddress, "nt", "_OBJECT_HEADER"); // nt!_OBJECT_HEADER
-        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex, ObjectHeaderAddress); // nt!_OBJECT_TYPE
+        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex, (WindowsRelease >= 10000) ? ObjectHeaderAddress : null); // nt!_OBJECT_TYPE
         this.TypeName = this.ObjectType.Name.toString().slice(1, -1);
         this.OptionalHeaders = {};
 
         try {
-            let StructObj = TypeToStruct[this.TypeName];
+            var StructObj = TypeToStruct[this.TypeName];
             this.NativeObject = host.createTypedObject(ObjectAddress, StructObj[0], StructObj[1]);
         }
         catch (e) {
-            log(e);
+            // warn(`Failed to create type '${this.TypeName} (${StructObj})': reason, ${e}`);
             this.NativeObject = ObjectAddress;
         }
 
@@ -271,6 +314,10 @@ class ObjectDirectory {
         this.Path = Path;
     }
 
+    toString() {
+        return this.Path;
+    }
+
     /**
      * WinObjDirectory.Children getter
      */
@@ -365,7 +412,7 @@ class ObjectDirectory {
 }
 
 
-class SessionModelParent {
+class ObjectExplorerSessionModel {
     /**
      * Help
      */
@@ -382,11 +429,7 @@ class SessionModelParent {
         //
         // Use nt!ObpRootDirectoryObject for the directory root
         //
-        var ObpRootDirectoryObject = host.getModuleSymbol(
-            "nt",
-            "ObpRootDirectoryObject",
-            "_OBJECT_DIRECTORY*"
-        );
+        var ObpRootDirectoryObject = host.getModuleSymbol("nt", "ObpRootDirectoryObject", "_OBJECT_DIRECTORY*");
 
         //
         // Dump from the root directory
@@ -400,14 +443,9 @@ class SessionModelParent {
  *
  */
 function initializeScript() {
-    //log("[+] Extending session model with `@$cursession.Objects`...");
-
     return [
-        new host.namedModelParent(
-            SessionModelParent,
-            'Debugger.Models.Session'
-        ),
-        new host.apiVersionSupport(1, 3)
+        new host.apiVersionSupport(1, 3),
+        new host.namedModelParent(ObjectExplorerSessionModel, 'Debugger.Models.Session'),
     ];
 }
 
