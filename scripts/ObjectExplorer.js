@@ -5,6 +5,9 @@
  *
  * Explore objects from nt!ObpRootDirectoryObject
  *
+ * Some good resources:
+ * - https://www.cs.fsu.edu/~zwang/files/cop4610/Fall2016/windows.pdf
+ * - https://codemachine.com/articles/object_headers.html
  */
 
 
@@ -12,8 +15,7 @@ const log = x => host.diagnostics.debugLog(`${x}\n`);
 const ok = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err = x => log(`[-] ${x}`);
-
-const GetObjectHeaderAddress = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
+const hex = x => x.toString(16);
 
 const TypeToStruct = {
     //
@@ -58,8 +60,6 @@ const TypeToStruct = {
     "WindowStation": ["win32k", "tagWINDOWSTATION"],
 
     /*
-    https://www.cs.fsu.edu/~zwang/files/cop4610/Fall2016/windows.pdf
-
     "ActivationObject": ["nt", "_"],
     "ActivityReference": ["nt", "_"],
     "Composition": ["nt", "_"],
@@ -99,7 +99,6 @@ const TypeToStruct = {
     "Session": ["nt", "_"],
     "SymbolicLink": ["nt", "_"],
     "ThreadStateChange": ["nt", "_"],
-
     "TpWorkerFactory": ["nt", "_"],
     "UserApcReserve": ["nt", "_"],
     "VRegConfigurationContext": ["nt", "_"],
@@ -108,57 +107,128 @@ const TypeToStruct = {
     */
 }
 
-
-class RootObject {
-    get Name() { return ""; }
-    get Path() { return ""; }
+function GetObjectHeaderAddress(ObjectAddress) {
+    return ObjectAddress.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
 }
+
+function GetObjectBodyAddress(HeaderAddress) {
+    return HeaderAddress.add(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
+}
+
+function GetTypeFromIndex(idx) {
+    let ObTypeIndexTable = host.getModuleSymbol(
+        "nt",
+        "ObTypeIndexTable",
+        "_OBJECT_TYPE*[]"
+    );
+    return ObTypeIndexTable[idx];
+}
+
+const OPTIONAL_HEADER_TYPE_CREATOR = 0;
+const OPTIONAL_HEADER_TYPE_NAME = 1;
+const OPTIONAL_HEADER_TYPE_HANDLE = 2;
+const OPTIONAL_HEADER_TYPE_QUOTA = 3;
+const OPTIONAL_HEADER_TYPE_PROCESS = 4;
 
 class ObjectDirectoryEntry {
     /**
      * Create a new object entry
-     *
-     * See nt!_OBJECT_DIRECTORY_ENTRY
      */
-    constructor(parent, obj, hashValue) {
+    constructor(parent, objectDirectoryEntry) {
         //
         // Set the current WinObj parent
         //
         this.Parent = parent;
-        this.ObjectHeader = host.createTypedObject(GetObjectHeaderAddress(obj), "nt", "_OBJECT_HEADER");
-        this.Type = this.ObjectHeader.ObjectType;
-        this.__HashValue = hashValue;
+        this.DirectoryEntry = objectDirectoryEntry; // nt!_OBJECT_DIRECTORY_ENTRY
+        let ObjectAddress = objectDirectoryEntry.Object.address;
+        let ObjectHeaderAddress = GetObjectHeaderAddress(ObjectAddress);
+        this.ObjectHeader = host.createTypedObject(ObjectHeaderAddress, "nt", "_OBJECT_HEADER"); // nt!_OBJECT_HEADER
+        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex); // nt!_OBJECT_TYPE
+        this.__TypeName = this.ObjectType.Name.toString().slice(1, -1);
+        this.OptionalHeaders = {};
 
-
-        //
-        // Create a typed object according to the object type
-        //
-        var StructObj = TypeToStruct[this.Type];
-
-        if (StructObj !== undefined) {
-            this.Object = host.createTypedObject(obj.address, StructObj[0], StructObj[1]);
+        let StructObj = TypeToStruct[this.__TypeName];
+        try {
+            this.NativeObject = host.createTypedObject(ObjectAddress, StructObj[0], StructObj[1]);
         }
-        else {
-            this.Object = obj;
+        catch (e) {
+            this.NativeObject = ObjectAddress;
+        }
+
+        if (this.HasCreatorInfo) {
+            let OptionalHeaderAddress = this.ObjectHeader.address.subtract(this.InfoMaskToOffset(OPTIONAL_HEADER_TYPE_CREATOR));
+            this.OptionalHeaders[OPTIONAL_HEADER_TYPE_CREATOR] = host.createTypedObject(OptionalHeaderAddress, "nt", "_OBJECT_HEADER_CREATOR_INFO");
+        }
+
+        if (this.HasNameInfo) {
+            let OptionalHeaderAddress = this.ObjectHeader.address.subtract(this.InfoMaskToOffset(OPTIONAL_HEADER_TYPE_NAME));
+            this.OptionalHeaders[OPTIONAL_HEADER_TYPE_NAME] = host.createTypedObject(OptionalHeaderAddress, "nt", "_OBJECT_HEADER_NAME_INFO");
+        }
+
+        if (this.HasHandleInfo) {
+            let OptionalHeaderAddress = this.ObjectHeader.address.subtract(this.InfoMaskToOffset(OPTIONAL_HEADER_TYPE_HANDLE));
+            this.OptionalHeaders[OPTIONAL_HEADER_TYPE_HANDLE] = host.createTypedObject(OptionalHeaderAddress, "nt", "_OBJECT_HEADER_HANDLE_INFO");
+        }
+
+        if (this.HasQuotaInfo) {
+            let OptionalHeaderAddress = this.ObjectHeader.address.subtract(this.InfoMaskToOffset(OPTIONAL_HEADER_TYPE_QUOTA));
+            this.OptionalHeaders[OPTIONAL_HEADER_TYPE_QUOTA] = host.createTypedObject(OptionalHeaderAddress, "nt", "_OBJECT_HEADER_QUOTA_INFO");
+        }
+
+        if (this.HasProcessInfo) {
+            let OptionalHeaderAddress = this.ObjectHeader.address.subtract(this.InfoMaskToOffset(OPTIONAL_HEADER_TYPE_PROCESS));
+            this.OptionalHeaders[OPTIONAL_HEADER_TYPE_PROCESS] = host.createTypedObject(OptionalHeaderAddress, "nt", "_OBJECT_HEADER_PROCESS_INFO");
         }
 
         //
-        // Get its name. If it's paged out, don't bother splicing
-        // The "ObjectName" member is an extension to the _OBJECT_HEADER structure implemented in kdexts.dll
+        // Specific cases
         //
-        this.Name = this.ObjectHeader.ObjectName;
-
-        if (this.Name !== undefined) {
-            this.Name = this.Name.slice(1, -1);
+        if (this.TypeName == "Directory") {
+            this.Children = new ObjectDirectory(this.NativeObject, this.Path).Children;
         }
+
+    }
+
+    get TypeName() {
+        return this.__TypeName;
+    }
+
+    get Name() {
+        return this.HasNameInfo ? this.OptionalHeaders[OPTIONAL_HEADER_TYPE_NAME].Name.toString().slice(1, -1) : "";
     }
 
     get Path() {
         return `${this.Parent.Path}\\${this.Name}`.replace("\\\\", "\\");
     }
 
-    get HashValue() {
-        return this.__HashValue;
+    get HasCreatorInfo() {
+        return this.ObjectHeader.InfoMask.bitwiseAnd(1 << OPTIONAL_HEADER_TYPE_CREATOR) != 0;
+    }
+
+    get HasNameInfo() {
+        return this.ObjectHeader.InfoMask.bitwiseAnd(1 << OPTIONAL_HEADER_TYPE_NAME) != 0;
+    }
+
+    get HasHandleInfo() {
+        return this.ObjectHeader.InfoMask.bitwiseAnd(1 << OPTIONAL_HEADER_TYPE_HANDLE) != 0;
+    }
+
+    get HasQuotaInfo() {
+        return this.ObjectHeader.InfoMask.bitwiseAnd(1 << OPTIONAL_HEADER_TYPE_QUOTA) != 0;
+    }
+
+    get HasProcessInfo() {
+        return this.ObjectHeader.InfoMask.bitwiseAnd(1 << OPTIONAL_HEADER_TYPE_PROCESS) != 0;
+    }
+
+    InfoMaskToOffset(DesiredAccessBit) {
+        let ObpInfoMaskToOffset = host.getModuleSymbol("nt", "ObpInfoMaskToOffset", "char[]");
+        let DesiredAccess = 1 << DesiredAccessBit;
+        let Index = this.ObjectHeader.InfoMask.bitwiseAnd(DesiredAccess | (DesiredAccess - 1));
+        return ObpInfoMaskToOffset[Index];
+    }
+
+    *__Walk() {
     }
 
     /**
@@ -166,7 +236,7 @@ class ObjectDirectoryEntry {
      */
     toString() {
         try {
-            let type = TypeToStruct[this.Type].join("!");
+            let type = TypeToStruct[this.TypeName].join("!");
             return `${this.Path.padEnd(48)}[${type}]`;
         }
         catch (e) {
@@ -189,73 +259,61 @@ class ObjectDirectoryEntry {
 }
 
 
-class ObjectDirectory extends ObjectDirectoryEntry {
+class ObjectDirectory {
     /**
      * Initialize new object directory
      *
      * See nt!_OBJECT_DIRECTORY
      */
-    constructor(parent, obj) {
-        super(parent, obj, undefined);
-        this.RawObject = host.createTypedObject(obj.address, "nt", "_OBJECT_DIRECTORY");
+    constructor(Object, Path = "") {
+        this.Object = Object; // nt!_OBJECT_DIRECTORY
+        this.Path = Path;
     }
-
 
     /**
      * WinObjDirectory.Children getter
      */
     get Children() {
-        return this.__WalkChildren();
+        return this.__Walk();
     }
 
 
     /**
      * Visit children nodes and store the objects in an array
      */
-    *__WalkChildren() {
+    *__Walk() {
         //
         // Dump the 37 hash buckets
         //
-        for (var bucketEntry of this.RawObject.HashBuckets) {
+        for (var DirectoryEntryHead of this.Object.HashBuckets) {
             //
-            // Only if non-empty
+            // Skip if non-empty
             //
-            if (!bucketEntry.isNull) {
+            if (DirectoryEntryHead.isNull) {
+                continue;
+            }
+
+            //
+            // Recurse through the chain of `nt!_OBJECT_DIRECTORY_ENTRY`
+            //
+            var curDirectoryEntry = DirectoryEntryHead;
+
+            while (true) {
                 //
-                // Recurse through the chain of `nt!_OBJECT_DIRECTORY_ENTRY`
+                // Create the directory entry object
                 //
-                var chainEntry = bucketEntry;
+                let Entry = new ObjectDirectoryEntry(this, curDirectoryEntry);
+                yield Entry;
 
-                while (true) {
-                    //
-                    // Create the object
-                    //
-                    let ObjectAddress = GetObjectHeaderAddress(chainEntry.Object);
-                    let TypedObject = host.createTypedObject(ObjectAddress, "nt", "_OBJECT_HEADER");
-
-                    if (TypedObject.ObjectType === "Directory") {
-                        //
-                        // Recursively call the generator on the sub-directory
-                        //
-                        yield new ObjectDirectory(this, chainEntry.Object);
-                    }
-                    else {
-
-                        yield new ObjectDirectoryEntry(this, chainEntry.Object, chainEntry.HashValue);
-                    }
-
-
-                    //
-                    // Move to the next entry in the chain if any
-                    //
-
-                    let Next = chainEntry.ChainLink;
-                    if (Next.isNull) {
-                        break;
-                    }
-
-                    chainEntry = Next.dereference();
+                //
+                // Move to the next entry in the chain if any
+                //
+                let Next = Entry.DirectoryEntry.ChainLink;
+                if (Next.isNull) {
+                    break;
                 }
+
+                curDirectoryEntry = Next.dereference();
             }
         }
     }
@@ -332,7 +390,7 @@ class SessionModelParent {
         //
         // Dump from the root directory
         //
-        return new ObjectDirectory(new RootObject(), ObpRootDirectoryObject.dereference());
+        return new ObjectDirectory(ObpRootDirectoryObject.dereference());
     }
 }
 
