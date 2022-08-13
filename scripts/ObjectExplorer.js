@@ -45,6 +45,7 @@ const TypeToStruct = {
     "TmRm": ["nt", "_KTRANSACTION"],
     "TmTm": ["nt", "_KTRANSACTION"],
     "TmTx": ["nt", "_KTRANSACTION"],
+    "IoRing": ["nt", "_IORING_OBJECT"],
 
     //
     // Filter manager
@@ -61,6 +62,7 @@ const TypeToStruct = {
     "WindowStation": ["win32k", "tagWINDOWSTATION"],
 
     /*
+    TODO
     "ActivationObject": ["nt", "_"],
     "ActivityReference": ["nt", "_"],
     "Composition": ["nt", "_"],
@@ -83,7 +85,6 @@ const TypeToStruct = {
     "EtwSessionDemuxEntry": ["nt", "_"],
     "IoCompletion": ["nt", "_"],
     "IoCompletionReserve": ["nt", "_"],
-    "IoRing": ["nt", "_"],
     "IRTimer": ["nt", "_"],
     "Key": ["nt", "_"],
     "KeyedEvent": ["nt", "_"],
@@ -114,7 +115,7 @@ class WindowsVersion {
     }
 
     __ResetValues() {
-        // hack: usually follow the same format
+        // hack to get the version, because usually `version` output follow the same format
         // - 7 : Windows 7 Kernel Version 7601 (Service Pack 1) MP (1 procs) Free x64
         // - 8.1 : Windows 8.1 Kernel Version 9600 MP (1 procs) Free x64
         // - 10 : Windows 10 Kernel Version 18362 MP (1 procs) Free x64
@@ -180,7 +181,6 @@ class ObjectDirectoryEntry {
      * Create a new object entry
      */
     constructor(parent, objectDirectoryEntry) {
-        let WindowsRelease = g_Version.Release;
         //
         // Set the current WinObj parent
         //
@@ -189,7 +189,7 @@ class ObjectDirectoryEntry {
         let ObjectAddress = objectDirectoryEntry.Object.address;
         let ObjectHeaderAddress = GetObjectHeaderAddress(ObjectAddress);
         this.ObjectHeader = host.createTypedObject(ObjectHeaderAddress, "nt", "_OBJECT_HEADER"); // nt!_OBJECT_HEADER
-        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex, (WindowsRelease >= 10000) ? ObjectHeaderAddress : null); // nt!_OBJECT_TYPE
+        this.ObjectType = GetTypeFromIndex(this.ObjectHeader.TypeIndex, (g_Version.Release >= 10000) ? ObjectHeaderAddress : null); // nt!_OBJECT_TYPE
         this.TypeName = this.ObjectType.Name.toString().slice(1, -1);
         this.OptionalHeaders = {};
 
