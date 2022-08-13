@@ -1,4 +1,4 @@
-/// <reference path="JSProvider.d.ts" />
+/// <reference path="../extra/JSProvider.d.ts" />
 "use strict";
 
 /**
@@ -8,62 +8,137 @@
  */
 
 
-const log  = x => host.diagnostics.debugLog(`${x}\n`);
-const ok   = x => log(`[+] ${x}`);
+const log = x => host.diagnostics.debugLog(`${x}\n`);
+const ok = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
-const err  = x => log(`[-] ${x}`);
+const err = x => log(`[-] ${x}`);
 
-const getHeaderAddress = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
-const getHeader = x => host.createTypedObject(getHeaderAddress(x), "nt", "_OBJECT_HEADER");
-const getName = x  => getHeader(x).ObjectName;
-const getTypeName = x  => getHeader(x).ObjectType;
+const GetObjectHeaderAddress = x => x.address.subtract(host.getModuleType("nt", "_OBJECT_HEADER").fields.Body.offset);
+
+const TypeToStruct = {
+    //
+    // NT types
+    //
+    "Type": ["nt", "_OBJECT_TYPE"],
+    "Event": ["nt", "_KEVENT"],
+    "Driver": ["nt", "_DRIVER_OBJECT"],
+    "Device": ["nt", "_DEVICE_OBJECT"],
+    "ALPC Port": ["nt", "_ALPC_PORT"],
+    "Section": ["nt", "_SECTION"],
+    "SymbolicLink": ["nt", "_OBJECT_SYMBOLIC_LINK"],
+    "Directory": ["nt", "_OBJECT_DIRECTORY"],
+    "Thread": ["nt", "_ETHREAD"],
+    "Process": ["nt", "_EPROCESS"],
+    "Key": ["nt", "_CM_KEY_BODY"],
+    "Job": ["nt", "_EJOB"],
+    "Mutant": ["nt", "_KMUTANT"],
+    "File": ["nt", "_FILE_OBJECT"],
+    "Token": ["nt", "_TOKEN"],
+    "Semaphore": ["nt", "_KSEMAPHORE"],
+    "Adapter": ["nt", "_ADAPTER_OBJECT"],
+    "Timer": ["nt", "_ETIMER"],
+    "Partition": ["nt", "_EPARTITION"],
+    "TmEn": ["nt", "_KTRANSACTION"],
+    "TmRm": ["nt", "_KTRANSACTION"],
+    "TmTm": ["nt", "_KTRANSACTION"],
+    "TmTx": ["nt", "_KTRANSACTION"],
+
+    //
+    // Filter manager
+    //
+    "FilterConnectionPort": ["fltmgr", "_FLT_SERVER_PORT_OBJECT"],
+    "FilterCommunicationPort": ["fltmgr", "_FLT_PORT_OBJECT"],
 
 
+    //
+    // Win32k
+    //
+    "Desktop": ["win32k", "tagDESKTOP"],
+    "Callback": ["win32k", "_CALLBACKWND"],
+    "WindowStation": ["win32k", "tagWINDOWSTATION"],
 
-class WinObj
-{
+    /*
+    https://www.cs.fsu.edu/~zwang/files/cop4610/Fall2016/windows.pdf
+
+    "ActivationObject": ["nt", "_"],
+    "ActivityReference": ["nt", "_"],
+    "Composition": ["nt", "_"],
+    "Controller": ["nt", "_"],
+    "CoreMessaging": ["nt", "_"],
+    "CoverageSampler": ["nt", "_"],
+    "DebugObject": ["nt", "_"],
+    "DmaAdapter": ["nt", "_"],
+    "DxgkCompositionObject": ["nt", "_"],
+    "DxgkDisplayManagerObject": ["nt", "_"],
+    "DxgkSharedBundleObject": ["nt", "_"],
+    "DxgkSharedKeyedMutexObject": ["nt", "_"],
+    "DxgkSharedProtectedSessionObject": ["nt", "_"],
+    "DxgkSharedResource": ["nt", "_"],
+    "DxgkSharedSwapChainObject": ["nt", "_"],
+    "DxgkSharedSyncObject": ["nt", "_"],
+    "EnergyTracker": ["nt", "_"],
+    "EtwConsumer": ["nt", "_"],
+    "EtwRegistration": ["nt", "_"],
+    "EtwSessionDemuxEntry": ["nt", "_"],
+    "IoCompletion": ["nt", "_"],
+    "IoCompletionReserve": ["nt", "_"],
+    "IoRing": ["nt", "_"],
+    "IRTimer": ["nt", "_"],
+    "Key": ["nt", "_"],
+    "KeyedEvent": ["nt", "_"],
+    "Mutant": ["nt", "_"],
+    "NdisCmState": ["nt", "_"],
+    "PcwObject": ["nt", "_"],
+    "PowerRequest": ["nt", "_"],
+    "ProcessStateChange": ["nt", "_"],
+    "Profile": ["nt", "_"],
+    "PsSiloContextNonPaged": ["nt", "_"],
+    "PsSiloContextPaged": ["nt", "_"],
+    "RawInputManager": ["nt", "_"],
+    "RegistryTransaction": ["nt", "_"],
+    "Session": ["nt", "_"],
+    "SymbolicLink": ["nt", "_"],
+    "ThreadStateChange": ["nt", "_"],
+
+    "TpWorkerFactory": ["nt", "_"],
+    "UserApcReserve": ["nt", "_"],
+    "VRegConfigurationContext": ["nt", "_"],
+    "WaitCompletionPacket": ["nt", "_"],
+    "WmiGuid": ["nt", "_"],
+    */
+}
+
+
+class RootObject {
+    get Name() { return ""; }
+    get Path() { return ""; }
+}
+
+class ObjectDirectoryEntry {
     /**
-     * Create a new WinObj object
+     * Create a new object entry
+     *
+     * See nt!_OBJECT_DIRECTORY_ENTRY
      */
-    constructor(parent, obj)
-    {
+    constructor(parent, obj, hashValue) {
         //
         // Set the current WinObj parent
         //
-        this.Parent = (parent === null) ? "" : parent;
-        this.ObjectHeader = getHeader(obj);
+        this.Parent = parent;
+        this.ObjectHeader = host.createTypedObject(GetObjectHeaderAddress(obj), "nt", "_OBJECT_HEADER");
         this.Type = this.ObjectHeader.ObjectType;
+        this.__HashValue = hashValue;
+
 
         //
         // Create a typed object according to the object type
         //
-        var TypeToStruct = {
-            "Type": ["nt", "_OBJECT_TYPE"],
-            "Event": ["nt", "_KEVENT"],
-            "Driver": ["nt", "_DRIVER_OBJECT"],
-            "Device": ["nt", "_DEVICE_OBJECT"],
-            "ALPC Port": ["nt", "_ALPC_PORT"],
-            "Section": ["nt", "_SECTION"],
-            "SymbolicLink": ["nt", "_OBJECT_SYMBOLIC_LINK"],
-            "Directory": ["nt", "_OBJECT_DIRECTORY"],
-            "Thread": ["nt", "_ETHREAD"],
-            "Process": ["nt", "_EPROCESS"],
-            "Key": ["nt", "_CM_KEY_BODY"],
-            "Job": ["nt", "_EJOB"],
-            "Mutant": ["nt", "_KMUTANT"],
-            "File": ["nt", "_FILE_OBJECT"],
-            "Token": ["nt", "_TOKEN"],
-            "Semaphore": ["nt", "_KSEMAPHORE"]
-        }
-
         var StructObj = TypeToStruct[this.Type];
 
-        if (StructObj != undefined)
-        {
+        if (StructObj !== undefined) {
             this.Object = host.createTypedObject(obj.address, StructObj[0], StructObj[1]);
         }
-        else
-        {
+        else {
             this.Object = obj;
         }
 
@@ -73,27 +148,36 @@ class WinObj
         //
         this.Name = this.ObjectHeader.ObjectName;
 
-        if (this.Name !== undefined)
-        {
+        if (this.Name !== undefined) {
             this.Name = this.Name.slice(1, -1);
         }
     }
 
+    get Path() {
+        return `${this.Parent.Path}\\${this.Name}`.replace("\\\\", "\\");
+    }
+
+    get HashValue() {
+        return this.__HashValue;
+    }
 
     /**
      *
      */
-    toString()
-    {
-        let text = `${this.Parent.toString()}\\${this.Name}`;
-        return text.replace("\\\\", "\\");
+    toString() {
+        try {
+            let type = TypeToStruct[this.Type].join("!");
+            return `${this.Path.padEnd(48)}[${type}]`;
+        }
+        catch (e) {
+            return `${this.Path}`;
+        }
     }
 
     /**
      * Help
      */
-    get [Symbol.metadataDescriptor]()
-    {
+    get [Symbol.metadataDescriptor]() {
         return {
             Parent: { Help: "Pointer to the parent WinObj node.", },
             Name: { Help: "Name of the current node.", },
@@ -105,73 +189,72 @@ class WinObj
 }
 
 
-class WinObjDirectory extends WinObj
-{
+class ObjectDirectory extends ObjectDirectoryEntry {
     /**
-     * Initialize new WinObjDirectory
+     * Initialize new object directory
+     *
+     * See nt!_OBJECT_DIRECTORY
      */
-    constructor(parent, obj)
-    {
-        super(parent, obj);
+    constructor(parent, obj) {
+        super(parent, obj, undefined);
+        this.RawObject = host.createTypedObject(obj.address, "nt", "_OBJECT_DIRECTORY");
     }
+
 
     /**
      * WinObjDirectory.Children getter
      */
-    get Children()
-    {
+    get Children() {
         return this.__WalkChildren();
     }
-
 
 
     /**
      * Visit children nodes and store the objects in an array
      */
-    *__WalkChildren()
-    {
+    *__WalkChildren() {
         //
         // Dump the 37 hash buckets
         //
-        for (var bucketEntry of this.Object.HashBuckets)
-        {
+        for (var bucketEntry of this.RawObject.HashBuckets) {
             //
             // Only if non-empty
             //
-            if ( !bucketEntry.isNull )
-            {
+            if (!bucketEntry.isNull) {
                 //
-                // Get the first chain
+                // Recurse through the chain of `nt!_OBJECT_DIRECTORY_ENTRY`
                 //
                 var chainEntry = bucketEntry;
 
-                while (true)
-                {
+                while (true) {
                     //
                     // Create the object
                     //
-                    if ( getTypeName( chainEntry.Object ) === "Directory" )
-                    {
+                    let ObjectAddress = GetObjectHeaderAddress(chainEntry.Object);
+                    let TypedObject = host.createTypedObject(ObjectAddress, "nt", "_OBJECT_HEADER");
+
+                    if (TypedObject.ObjectType === "Directory") {
                         //
                         // Recursively call the generator on the sub-directory
                         //
-                        yield new WinObjDirectory(this, chainEntry.Object);
+                        yield new ObjectDirectory(this, chainEntry.Object);
                     }
-                    else
-                    {
-                        yield new WinObj(this, chainEntry.Object);
+                    else {
+
+                        yield new ObjectDirectoryEntry(this, chainEntry.Object, chainEntry.HashValue);
                     }
 
 
                     //
-                    // Move to the next entry in the chain
+                    // Move to the next entry in the chain if any
                     //
-                    if (chainEntry.ChainLink.isNull)
-                    {
+
+                    let Next = chainEntry.ChainLink;
+                    if (Next.isNull) {
                         break;
                     }
 
-                    chainEntry = chainEntry.ChainLink.dereference();
+                    chainEntry = Next.dereference();
                 }
             }
         }
@@ -183,28 +266,23 @@ class WinObjDirectory extends WinObj
      *
      * @param {String} childrenName Object name relative to this directory
      */
-    LookupByName(childrenName)
-    {
+    LookupByName(childrenName) {
         var currentObject = this;
 
-        for (var namePart of childrenName.split("\\"))
-        {
+        for (var namePart of childrenName.split("\\")) {
             namePart = namePart.toLowerCase();
 
             var found = false;
 
-            for (var children of currentObject.Children)
-            {
-                if (children.Name.toLowerCase() == namePart)
-                {
+            for (var children of currentObject.Children) {
+                if (children.Name.toLowerCase() == namePart) {
                     found = true;
                     currentObject = children;
                     break;
                 }
             }
 
-            if (!found)
-            {
+            if (!found) {
                 return null;
             }
         }
@@ -215,8 +293,7 @@ class WinObjDirectory extends WinObj
     /**
      * Help
      */
-    get [Symbol.metadataDescriptor]()
-    {
+    get [Symbol.metadataDescriptor]() {
         return {
             Parent: { Help: "Pointer to the parent WinObj node.", },
             Name: { Help: "Name of the current node.", },
@@ -229,13 +306,11 @@ class WinObjDirectory extends WinObj
 }
 
 
-class SessionModelParent
-{
+class SessionModelParent {
     /**
      * Help
      */
-    get [Symbol.metadataDescriptor]()
-    {
+    get [Symbol.metadataDescriptor]() {
         return {
             Objects: { Help: "Root of the Windows Named Object directory.", },
         };
@@ -244,8 +319,7 @@ class SessionModelParent
     /**
      * Root object getter
      */
-    get Objects()
-    {
+    get Objects() {
         //
         // Use nt!ObpRootDirectoryObject for the directory root
         //
@@ -258,7 +332,7 @@ class SessionModelParent
         //
         // Dump from the root directory
         //
-        return new WinObjDirectory(null, ObpRootDirectoryObject.dereference());
+        return new ObjectDirectory(new RootObject(), ObpRootDirectoryObject.dereference());
     }
 }
 
@@ -266,8 +340,7 @@ class SessionModelParent
 /**
  *
  */
-function initializeScript()
-{
+function initializeScript() {
     //log("[+] Extending session model with `@$cursession.Objects`...");
 
     return [
