@@ -4,6 +4,29 @@
     Ke scripts  (loadtrigger -> kernel)
     -->
     <ExtensionPackage>
+        <Name>EnumCallbacks</Name>
+        <Version>1.0.0.0</Version>
+        <Description>Dump known callbacks.</Description>
+        <Components>
+            <ScriptComponent Name="EnumCallbacks" Type="Engine" File="..\scripts\EnumCallbacks.js" FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="KdEnumerateCallbacks">
+                        <AliasItem>
+                            <Syntax><![CDATA[!enumcb]]></Syntax>
+                            <Description><![CDATA[Dump known callbacks.]]></Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+        </Components>
+    </ExtensionPackage>
+
+    <ExtensionPackage>
         <Name>GetIdtGdt</Name>
         <Version>1.0.0.0</Version>
         <Description>Adds GDT information to current thread.</Description>
@@ -14,10 +37,6 @@
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
-                <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread" Property="GlobalDescriptorTable"/>
-                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread" Property="InterruptDescriptorTable"/>
-                </ObjectExtensionList>
                 <FunctionAliases>
                     <FunctionAlias Name="GdtAccessHelper">
                         <AliasItem>
