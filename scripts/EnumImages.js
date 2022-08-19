@@ -45,79 +45,109 @@ const g_FlagsToCheck = {
     "NO_BIND": IMAGE_DLLCHARACTERISTICS_NO_BIND,
 };
 
+class ModuleEntry {
+    constructor(Entry) {
+        this.__Entry = Entry;
+    }
+
+    get Name() {
+        return this.__Entry.BaseDllName.ToDisplayString().slice(1, -1);
+    }
+
+    get Path() {
+        return this.__Entry.FullDllName.ToDisplayString().slice(1, -1);
+    }
+
+    get BaseAddress() {
+        return this.__Entry.DllBase.address;
+    }
+
+    get Entry() {
+        return this.__Entry;
+    }
+
+    toString() {
+        return `${this.Path}`;
+    }
+}
+
+class GenericModuleIterator {
+    constructor(ListHead, TypeName) {
+        this.__ListHead = ListHead;
+        this.__TypeName = TypeName;
+    }
+
+    Iterator() {
+        return host.namespace.Debugger.Utility.Collections.FromListEntry(
+            this.__ListHead,
+            this.__TypeName,
+            "InLoadOrderLinks"
+        );
+    }
+
+    *[Symbol.iterator]() {
+        for (let mod of this.Iterator()) {
+            let entry = new ModuleEntry(mod);
+            let index = entry.BaseAddress;
+            yield new host.indexedValue(entry, [index]);
+        }
+    }
+
+    toString() {
+        throw new Error();
+    }
+
+    getDimensionality() {
+        return 1;
+    }
+
+    getValueAt(address) {
+        for (let item of this.Iterator()) {
+            let entry = new ModuleEntry(item);
+            if (entry.BaseAddress.compareTo(address) == 0) {
+                return entry;
+            }
+        }
+
+        return undefined;
+    }
+}
+
+
+class ProcessModuleIterator extends GenericModuleIterator {
+    constructor() {
+        let Peb = IsKd() ? curprocess().KernelObject.Peb : host.namespace.Debugger.State.PseudoRegisters.General.peb;
+        let ListHead = Peb.Ldr.InLoadOrderModuleList;
+        super(ListHead, "ntdll!_LDR_DATA_TABLE_ENTRY");
+    }
+
+    toString() {
+        return "ProcessModuleIterator";
+    }
+}
+
+
+class SystemModuleIterator extends GenericModuleIterator {
+    constructor() {
+        let PsLoadedModuleHead = host.createPointerObject(
+            host.getModuleSymbolAddress("nt", "PsLoadedModuleList"),
+            "nt",
+            "_LDR_DATA_TABLE_ENTRY *"
+        );
+        let ListHead = PsLoadedModuleHead.InLoadOrderLinks;
+        super(ListHead, "nt!_LDR_DATA_TABLE_ENTRY");
+    }
+
+    toString() {
+        return "SystemModuleIterator";
+    }
+}
 
 
 /**
  *
  */
-function* EnumerateCurrentProcessModules() {
-    //
-    // Get the PEB and Loader info from the the pseudo-registers
-    //
-    let peb = IsKd() ? curprocess().KernelObject.Peb : host.namespace.Debugger.State.PseudoRegisters.General.peb;
-
-    //
-    // Create the iterator
-    //
-    let ModuleList = host.namespace.Debugger.Utility.Collections.FromListEntry(
-        peb.Ldr.InLoadOrderModuleList,
-        "ntdll!_LDR_DATA_TABLE_ENTRY",
-        "InLoadOrderLinks"
-    );
-
-    for (let m of ModuleList) {
-        yield {
-            Entry: m,
-            get Name() { let res = m.BaseDllName.ToDisplayString(); return res.length > 0 ? res.slice(1, -1) : "" },
-            get Path() { let res = m.FullDllName.ToDisplayString(); return res.length > 0 ? res.slice(1, -1) : "" },
-            toString() {
-                return `${this.Name} - ${m.DllBase.address}`;
-            },
-        }
-    }
-}
-
-function* EnumerateSystemModules() {
-    if (!IsKd()) {
-        err("KD only");
-        return;
-    }
-
-    //
-    // Get the value associated to the symbol nt!PsLoadedModuleList and cast it as nt!LIST_ENTRY
-    //
-    let pPsLoadedModuleHead = host.createPointerObject(host.getModuleSymbolAddress("nt", "PsLoadedModuleList"), "nt", "_LIST_ENTRY *");
-
-    // Dereference the pointer (which makes us point to ntoskrnl)
-    // Cast it to nt!KLDR_DATA_TABLE_ENTRY
-    let pNtLdrDataEntry = host.createPointerObject(pPsLoadedModuleHead.address, "nt", "_LDR_DATA_TABLE_ENTRY *");
-
-    //
-    // Create the iterator
-    //
-    let PsLoadedModuleList = host.namespace.Debugger.Utility.Collections.FromListEntry(
-        pNtLdrDataEntry.InLoadOrderLinks,
-        "nt!_LDR_DATA_TABLE_ENTRY",
-        "InLoadOrderLinks"
-    );
-
-    for (let item of PsLoadedModuleList) {
-        yield {
-            Entry: item,
-            get Name() { let res = item.BaseDllName.ToDisplayString(); return res.length > 0 ? res.slice(1, -1) : "" },
-            get Path() { let res = item.FullDllName.ToDisplayString(); return res.length > 0 ? res.slice(1, -1) : "" },
-            toString() {
-                return `${this.Name} - ${item.DllBase.address}`;
-            },
-        }
-    }
-}
-
-
-/**
- *
- */
-function* CheckSec() {
+function* checksec() {
     for (let DllEntry of EnumerateCurrentProcessModules()) {
         let Dll = DllEntry.Entry;
         let DosHeader = host.createTypedObject(Dll.DllBase.address, "ntdll", "_IMAGE_DOS_HEADER");
@@ -147,21 +177,12 @@ function* CheckSec() {
 }
 
 
-
-/**
- *
- */
-function checksec() {
-    return CheckSec();
-}
-
-
 /**
  *
  */
 class ProcessDlls {
     get Dlls() {
-        return EnumerateCurrentProcessModules();
+        return new ProcessModuleIterator();
     }
 }
 
@@ -171,7 +192,7 @@ class ProcessDlls {
 
 class SessionModules {
     get Modules() {
-        return EnumerateSystemModules();
+        return new SystemModuleIterator();
     }
 }
 
@@ -197,19 +218,8 @@ function initializeScript() {
 
         new host.functionAlias(
             checksec,
-            "checksec"
+            "checksec2"
         ),
-
-        new host.functionAlias(
-            EnumerateSystemModules,
-            "SystemModules"
-        ),
-
-        new host.functionAlias(
-            EnumerateCurrentProcessModules,
-            "ProcessModules"
-        ),
-
     ];
 }
 
