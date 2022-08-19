@@ -1,4 +1,4 @@
-/// <reference path="JSProvider.d.ts" />
+/// <reference path="../extra/JSProvider.d.ts" />
 "use strict";
 
 
@@ -24,10 +24,10 @@ const ok = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
 const err = x => log(`[-] ${x}`);
 
-function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function IsX64() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize === 8; }
-function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
-function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
+
+const IMAGE_FILE_MACHINE_I386 = 0x014c;
+const IMAGE_FILE_MACHINE_AMD64 = 0x8664;
 
 const IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE = 0x0040;
 const IMAGE_DLLCHARACTERISTICS_FORCE_INTEGRITY = 0x0080;
@@ -44,6 +44,47 @@ const g_FlagsToCheck = {
     "NO_SEH": IMAGE_DLLCHARACTERISTICS_NO_SEH,
     "NO_BIND": IMAGE_DLLCHARACTERISTICS_NO_BIND,
 };
+
+/**
+ * Check various security attributes
+ */
+class CheckSec {
+    constructor(moduleAddress) {
+        this.__Address = moduleAddress;
+        this.__DosHeader = host.createTypedObject(moduleAddress, "ntdll", "_IMAGE_DOS_HEADER");
+        this.__PeHeader = IsX64()
+            ? host.createTypedObject(moduleAddress.add(this.__DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64")
+            : host.createTypedObject(moduleAddress.add(this.__DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS32");
+    }
+
+    get Address() {
+        return this.__Address;
+    }
+
+    get DosHeader() {
+        return this.__DosHeader;
+    }
+
+    get PeHeader() {
+        return this.__PeHeader;
+    }
+
+    get Flags() {
+        let PeFlags = this.PeHeader.OptionalHeader.DllCharacteristics;
+        let flags = [];
+        for (const flagName in g_FlagsToCheck) {
+            let flagValue = g_FlagsToCheck[flagName];
+            if (PeFlags & flagValue) {
+                flags.push(flagName);
+            }
+        }
+        return flags;
+    }
+
+    toString() {
+        return `${this.Flags.join("|")}`;
+    }
+}
 
 class ModuleEntry {
     constructor(Entry) {
@@ -68,6 +109,10 @@ class ModuleEntry {
 
     toString() {
         return `${this.Path}`;
+    }
+
+    get CheckSec() {
+        return new CheckSec(this.BaseAddress);
     }
 }
 
@@ -109,15 +154,14 @@ class GenericModuleIterator {
             }
         }
 
-        return undefined;
+        throw new RangeError("Unable to find specified value");
     }
 }
 
 
 class ProcessModuleIterator extends GenericModuleIterator {
-    constructor() {
-        let Peb = IsKd() ? curprocess().KernelObject.Peb : host.namespace.Debugger.State.PseudoRegisters.General.peb;
-        let ListHead = Peb.Ldr.InLoadOrderModuleList;
+    constructor(process) {
+        let ListHead = process.Environment.EnvironmentBlock.Ldr.InLoadOrderModuleList;
         super(ListHead, "ntdll!_LDR_DATA_TABLE_ENTRY");
     }
 
@@ -128,7 +172,10 @@ class ProcessModuleIterator extends GenericModuleIterator {
 
 
 class SystemModuleIterator extends GenericModuleIterator {
-    constructor() {
+    constructor(session) {
+        if (session.Attributes.Target.IsKernelTarget === false)
+            throw new Error("KD only");
+
         let PsLoadedModuleHead = host.createPointerObject(
             host.getModuleSymbolAddress("nt", "PsLoadedModuleList"),
             "nt",
@@ -147,52 +194,19 @@ class SystemModuleIterator extends GenericModuleIterator {
 /**
  *
  */
-function* checksec() {
-    for (let DllEntry of EnumerateCurrentProcessModules()) {
-        let Dll = DllEntry.Entry;
-        let DosHeader = host.createTypedObject(Dll.DllBase.address, "ntdll", "_IMAGE_DOS_HEADER");
-        let PeHeader = IsX64()
-            ? host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64")
-            : host.createTypedObject(Dll.DllBase.address.add(DosHeader.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS32");
-        let PeFlags = PeHeader.OptionalHeader.DllCharacteristics;
-
-        let flags = [];
-        for (const flagName in g_FlagsToCheck) {
-            let flagValue = g_FlagsToCheck[flagName];
-            if (PeFlags & flagValue) {
-                flags.push(flagName);
-            }
-        }
-
-        yield {
-            ImagePath: DllEntry.Path,
-            ImageBase: DosHeader.address,
-            Flags: flags.join("|"),
-            LoaderEntry: Dll,
-            toString() {
-                return `${this.ImagePath} - ${this.Flags}`;
-            },
-        };
-    }
-}
-
-
-/**
- *
- */
 class ProcessDlls {
     get Dlls() {
-        return new ProcessModuleIterator();
+        return new ProcessModuleIterator(this);
     }
 }
+
 
 /**
  *
  */
-
 class SessionModules {
     get Modules() {
-        return new SystemModuleIterator();
+        return new SystemModuleIterator(this);
     }
 }
 
@@ -201,25 +215,12 @@ class SessionModules {
  *
  */
 function initializeScript() {
-    ok("Adding the commands `Model.Session.Modules`, `Model.Process.Dlls` && `checksec`");
+    ok("Adding the commands `Model.Session.Modules`, `Model.Process.Dlls`");
 
     return [
         new host.apiVersionSupport(1, 3),
-
-        new host.namedModelParent(
-            ProcessDlls,
-            'Debugger.Models.Process'
-        ),
-
-        new host.namedModelParent(
-            SessionModules,
-            'Debugger.Models.Session'
-        ),
-
-        new host.functionAlias(
-            checksec,
-            "checksec"
-        ),
+        new host.namedModelParent(ProcessDlls, 'Debugger.Models.Process'),
+        new host.namedModelParent(SessionModules, 'Debugger.Models.Session'),
     ];
 }
 

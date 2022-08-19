@@ -320,14 +320,6 @@
                             </Description>
                         </AliasItem>
                     </FunctionAlias>
-                    <FunctionAlias Name="checksec">
-                        <AliasItem>
-                            <Syntax><![CDATA[!checksec]]></Syntax>
-                            <Description>
-                                <![CDATA[Checks the security properties of the loaded DLLs associated to `$curprocess`.]]>
-                            </Description>
-                        </AliasItem>
-                    </FunctionAlias>
                 </FunctionAliases>
                 <ObjectExtensionList>
                     <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Dlls"/>
