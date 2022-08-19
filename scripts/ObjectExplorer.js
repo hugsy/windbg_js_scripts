@@ -307,11 +307,11 @@ class ObjectDirectoryEntry {
         };
 
         if (this.TypeName == "Directory") {
-            attr[Children] = { Help: "Browse the child objects" };
+            attr["Children"] = { Help: "Browse the child objects" };
         }
 
         if (this.TypeName == "SymbolicLink") {
-            attr[LinkTarget] = { Help: "Path to the symbolic link target" };
+            attr["LinkTarget"] = { Help: "Path to the symbolic link target" };
         }
 
         return attr;
