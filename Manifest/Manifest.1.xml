@@ -241,33 +241,6 @@
     </ExtensionPackage>
 
     <ExtensionPackage>
-        <Name>EnumModules</Name>
-        <Version>1.0.0.0</Version>
-        <Description>Enumerate modules from nt!PsLoadedModuleList.</Description>
-        <Components>
-            <ScriptComponent Name="EnumModules" Type="Engine" File="..\scripts\EnumModules.js" FilePathKind="RepositoryRelative">
-                <LoadTriggers>
-                    <TriggerSet>
-                        <TargetTrigger Type="Kernel" />
-                    </TriggerSet>
-                </LoadTriggers>
-                <FunctionAliases>
-                    <FunctionAlias Name="LoadedModules">
-                        <AliasItem>
-                            <Syntax>
-                                <![CDATA[!LoadedModules]]>
-                            </Syntax>
-                            <Description>
-                                <![CDATA[Enumerate modules from nt!PsLoadedModuleList.]]>
-                            </Description>
-                        </AliasItem>
-                    </FunctionAlias>
-                </FunctionAliases>
-            </ScriptComponent>
-        </Components>
-    </ExtensionPackage>
-
-    <ExtensionPackage>
         <Name>EnumApc</Name>
         <Version>1.0.0.0</Version>
         <Description>Enumerate APC in the current KD session.</Description>
@@ -320,50 +293,50 @@
         </Components>
     </ExtensionPackage>
 
+
+    <!--
+    generic scripts
+    -->
     <ExtensionPackage>
-        <Name>EnumDlls</Name>
+        <Name>EnumImages</Name>
         <Version>1.0.0.0</Version>
-        <Description>Enumerate UM modules for the currently debugged process.</Description>
+        <Description>Enumerate images loaded on the system.</Description>
         <Components>
             <ScriptComponent Name="EnumDlls" Type="Engine" File="..\scripts\EnumDlls.js" FilePathKind="RepositoryRelative">
-                <LoadTriggers>
-                    <TriggerSet>
-                        <TargetTrigger Type="User" />
-                    </TriggerSet>
-                </LoadTriggers>
                 <FunctionAliases>
-                    <FunctionAlias Name="LoadedDlls">
+                    <FunctionAlias Name="SystemModules">
                         <AliasItem>
-                            <Syntax>
-                                <![CDATA[!LoadedDlls]]>
-                            </Syntax>
+                            <Syntax><![CDATA[!SystemModules]]></Syntax>
                             <Description>
-                                <![CDATA[Enumerate UM modules for the currently debugged process.]]>
+                                <![CDATA[Enumerate modules loaded on the system.]]>
+                            </Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                    <FunctionAlias Name="ProcessModules">
+                        <AliasItem>
+                            <Syntax><![CDATA[!ProcessModules]]></Syntax>
+                            <Description>
+                                <![CDATA[Enumerate process DLL images.]]>
                             </Description>
                         </AliasItem>
                     </FunctionAlias>
                     <FunctionAlias Name="checksec">
                         <AliasItem>
-                            <Syntax>
-                                <![CDATA[!checksec]]>
-                            </Syntax>
+                            <Syntax><![CDATA[!checksec]]></Syntax>
                             <Description>
-                                <![CDATA[Checks the security properties of the images loaded.]]>
+                                <![CDATA[Checks the security properties of the loaded DLLs associated to `$curprocess`.]]>
                             </Description>
                         </AliasItem>
                     </FunctionAlias>
                 </FunctionAliases>
                 <ObjectExtensionList>
                     <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Dlls"/>
+                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Modules"/>
                 </ObjectExtensionList>
             </ScriptComponent>
         </Components>
     </ExtensionPackage>
 
-
-    <!--
-    generic scripts
-    -->
     <ExtensionPackage>
         <Name>CallGraph</Name>
         <Version>1.0.0.0</Version>
