@@ -218,7 +218,7 @@ function initializeScript() {
 
         new host.functionAlias(
             checksec,
-            "checksec2"
+            "checksec"
         ),
     ];
 }
