@@ -197,7 +197,7 @@
 
     <ExtensionPackage>
         <Name>RegistryExplorer</Name>
-        <Version>1.0.0.0</Version>
+        <Version>1.0.0.1</Version>
         <Description>Navigate the registry from WinDbg via LINQ (WinObj-like).</Description>
         <Components>
             <ScriptComponent Name="RegistryExplorer.js" Type="Engine" File="..\scripts\RegistryExplorer.js" FilePathKind="RepositoryRelative">
