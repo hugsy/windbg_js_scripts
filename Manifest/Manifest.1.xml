@@ -83,7 +83,7 @@
 
     <ExtensionPackage>
         <Name>DumpLookasides</Name>
-        <Version>1.0.0.0</Version>
+        <Version>1.0.0.1</Version>
         <Description>Get the SSDT as WinDBG DDM array.</Description>
         <Components>
             <ScriptComponent Name="DumpLookasides" Type="Engine" File="..\scripts\DumpLookasides.js" FilePathKind="RepositoryRelative">

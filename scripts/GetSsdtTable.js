@@ -1,3 +1,10 @@
+///
+/// <reference path="../extra/JSProvider.d.ts" />
+///
+/// @ts-check
+///
+"use strict";
+
 /**
  *
  * Get the SSDT (nt) as WinDBG convience array
@@ -11,101 +18,131 @@
  * kd> dx @$ServiceTable().Where( s => s.Name.Contains("nt") ).Count()
  *
  */
-"use strict";
 
-const log = x => host.diagnostics.debugLog(x + "\n");
+
+const log = x => host.diagnostics.debugLog(`${x}\n`);
+const ok = x => log(`[+] ${x}`);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
+const hex = x => x.toString(16);
+const i64 = x => host.parseInt64(x);
 
-function IsX64(){return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8;}
-function GetSymbolFromAddress(x){ return system('.printf "%y", ' + x.toString(16)).First(); }
+function IsX64() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8; }
+function GetSymbolFromAddress(x) { return system(`.printf "%y", ${hex(x)}`).First(); }
 
 
-class SsdtEntry
-{
-    constructor(addr, name, argnum)
-    {
-        this.Address = addr
-        this.Name = name;
-        this.NumberOfArgumentsOnStack = argnum;
+class SsdtEntry {
+    constructor(addr, argnum = undefined) {
+        this.Address = addr;
+        if (argnum !== undefined)
+            this.ArgsOnStack = argnum;
     }
 
+    get Symbol() {
+        return GetSymbolFromAddress(this.Address);
+    }
 
-    toString()
-    {
-        let str = `(${this.Address.toString(16)}) ${this.Name}`;
-        if (IsX64() && this.NumberOfArgumentsOnStack)
-            str += ` StackArgNum=${this.NumberOfArgumentsOnStack}`;
+    toString() {
+        let str = `${this.Symbol}`;
+        if (IsX64())
+            str += ` ArgsOnStack=${this.ArgsOnStack}`;
         return str;
     }
 }
 
 
-/**
- * Retrieve the SSDT offsets from nt!KeServiceDescriptorTable
- */
-function FetchSsdtOffsets()
-{
-    var SsdtOffsetTable = [];
-    if(IsX64())
-    {
-        let SsdtTable = host.getModuleSymbolAddress("nt", "KeServiceDescriptorTable");
-        let NumberOfSyscalls = u32( host.getModuleSymbolAddress("nt", "KiServiceLimit") );
-        let expr = "**(unsigned int(**)[" + NumberOfSyscalls.toString() + "])0x" + SsdtTable.toString(16);
-        SsdtOffsetTable["Offsets"] = host.evaluateExpression(expr);
-        SsdtOffsetTable["Base"] = host.getModuleSymbolAddress("nt", "KiServiceTable");
+class SsdtTable {
+
+    constructor(session) {
+        this.__session = session;
+        this.__OffsetTable = {};
+        this.__IsX64 = IsX64();
+
+        if (this.__IsX64) {
+            let NumberOfSyscalls = u32(host.getModuleSymbolAddress("nt", "KiServiceLimit"));
+            let SsdtTable = host.getModuleSymbolAddress("nt", "KeServiceDescriptorTable");
+            let expr = `**(unsigned int(**)[${NumberOfSyscalls}])0x${hex(SsdtTable)}`;
+            this.__OffsetTable = host.evaluateExpression(expr);
+            this.__OffsetTableBase = host.getModuleSymbolAddress("nt", "KiServiceTable");
+        }
+        else {
+            let SsdtTable = host.getModuleSymbolAddress("nt", "_KeServiceDescriptorTable");
+            let NumberOfSyscalls = u32(host.getModuleSymbolAddress("nt", "_KiServiceLimit"));
+            let expr = `**(unsigned int(**)[${NumberOfSyscalls}])0x${hex(SsdtTable)}`;
+            this.__OffsetTable = host.evaluateExpression(expr);
+            this.__OffsetTableBase = host.getModuleSymbolAddress("nt", "_KiServiceTable");
+        }
     }
-    else
-    {
-        let SsdtTable = host.getModuleSymbolAddress("nt", "_KeServiceDescriptorTable");
-        let NumberOfSyscalls = u32( host.getModuleSymbolAddress("nt", "_KiServiceLimit") );
-        let expr = "**(unsigned int(**)[" + NumberOfSyscalls.toString() + "])0x" + SsdtTable.toString(16);
-        SsdtOffsetTable["Offsets"] = host.evaluateExpression(expr);
-        SsdtOffsetTable["Base"] = host.getModuleSymbolAddress("nt", "_KiServiceTable");
+
+    getDimensionality() {
+        return 1;
     }
-    return SsdtOffsetTable;
+
+    getValueAt(addr) {
+        let target_address = i64(addr);
+        for (let entry of this.__Entries()) {
+            if (entry.Address.compareTo(target_address) == 0) {
+                return entry;
+            }
+        }
+        throw new RangeError(`No entry at ${hex(target_address)}`);
+    }
+
+    get Count() {
+        return this.__OffsetTable.Count();
+    }
+
+    *__Entries() {
+        for (let i = 0; i < this.Count; i++) {
+            let Address = i64(0);
+
+            if (this.__IsX64) {
+                Address = this.__OffsetTableBase.add(this.__OffsetTable[i] >> 4);
+                yield new SsdtEntry(Address, this.__OffsetTable[i] & 3);
+            }
+            else {
+                Address = this.__OffsetTable[i];
+                yield new SsdtEntry(Address);
+            }
+        }
+    }
+
+    *[Symbol.iterator]() {
+        for (let entry of this.__Entries()) {
+            yield new host.indexedValue(entry, [entry.Address]);
+        }
+    }
+
+    toString() {
+        return "Enumerate the SSDT entries.";
+    }
 }
 
 
-/**
- * Build a generator function from the SSDT table offsets, that returns the symbol
- * associated to the address.
- */
-function *ShowSsdtTable()
-{
-    let OffsetTable = FetchSsdtOffsets();
-    for (var i = 0 ; i < OffsetTable.Offsets.Count(); i++)
-    {
-        let Address, ArgNum = 0;
+class SsdtSessionModel {
+    get [Symbol.metadataDescriptor]() {
+        return {
+            SyscallTable: { Help: "Enumerate the SSDT entries.", },
+        };
+    }
 
-        if (IsX64())
-        {
-            Address = OffsetTable.Base.add(OffsetTable.Offsets[i] >> 4);
-            ArgNum = OffsetTable.Offsets[i] & 3;
-        }
-        else
-        {
-            Address = OffsetTable.Offsets[i];
-        }
-
-        var Symbol = GetSymbolFromAddress(Address);
-        yield new SsdtEntry(Address, Symbol, ArgNum);
+    get SyscallTable() {
+        return new SsdtTable(this);
     }
 }
 
+function* ShowSsdtTable() {
+    let table = new SsdtTable(null);
+    yield* table;
+}
 
-function initializeScript()
-{
-    //
-    // Alias the function to WinDBG
-    //
-    log("[+] Creating the variable `ssdt` for the SSDT...");
+function initializeScript() {
+    ok("Creating the variable `ssdt` for the SSDT...");
+
     return [
         new host.apiVersionSupport(1, 3),
-
-        new host.functionAlias(
-            ShowSsdtTable,
-            "ssdt"
-        ),
+        new host.namedModelParent(SsdtSessionModel, 'Debugger.Models.Session'),
+        new host.functionAlias(ShowSsdtTable, "ssdt")
     ];
 }
+
