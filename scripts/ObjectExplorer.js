@@ -1,6 +1,13 @@
 /// <reference path="../extra/JSProvider.d.ts" />
 // "use strict";
 
+Object.prototype.toString = function () {
+    if (this.__Name !== undefined) { return `${this.__Name}` };
+    if (this.__Path !== undefined) { return `${this.__Path}` };
+    return ``;
+};
+
+
 /**
  *
  * Explore objects from nt!ObpRootDirectoryObject

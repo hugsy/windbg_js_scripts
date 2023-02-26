@@ -3,14 +3,13 @@
 ///
 /// @ts-check
 ///
+/// Template file for new WinDbg JS scripts
+///
+
 "use strict";
 
 
-/**
- *
- * Template file for new WinDbg JS scripts
- *
- */
+Object.prototype.toString = function () { if (this.__Name !== undefined) { return `${this.__Name}` }; if (this.__Path !== undefined) { return `${this.__Path}` }; return ``; };
 
 const log = x => host.diagnostics.debugLog(`${x}\n`);
 const ok = x => log(`[+] ${x}`);
