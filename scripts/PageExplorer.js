@@ -94,7 +94,8 @@ class PageEntryFlags
         this.CacheDisabled  = this.__flags.bitwiseAnd( 0b000000010000 ) > 0 ? true : false;
         this.Accessed       = this.__flags.bitwiseAnd( 0b000000100000 ) > 0 ? true : false;
         this.Dirty          = this.__flags.bitwiseAnd( 0b000001000000 ) > 0 ? true : false;
-        this.Global         = this.__flags.bitwiseAnd( 0b000010000000 ) > 0 ? true : false;
+        this.LargePage      = this.__flags.bitwiseAnd( 0b000010000000 ) > 0 ? true : false;
+        this.Global         = this.__flags.bitwiseAnd( 0b000100000000 ) > 0 ? true : false;
 
         this.NoExecute      = this.__flags.bitwiseAnd( 0x80000000 ) > 0 ? true : false;
     }
