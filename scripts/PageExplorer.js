@@ -5,7 +5,6 @@
 ///
 "use strict";
 
-
 /**
  *
  * !pte replacement - but way slower because there's no primitive for read/write physical memory in JS
@@ -38,38 +37,35 @@
 
 const DEBUG = true;
 
-const log  = x => host.diagnostics.debugLog(`${x}\n`);
-const dbg  = x => {if( DEBUG )log(`[*] ${x}`);};
-const ok   = x => log(`[+] ${x}`);
+const log = x => host.diagnostics.debugLog(`${x}\n`);
+const dbg = x => { if (DEBUG) log(`[*] ${x}`); };
+const ok = x => log(`[+] ${x}`);
 const warn = x => log(`[!] ${x}`);
-const err  = x => log(`[-] ${x}`);
-const hex  = x => x.toString(16);
-const i64  = x => host.parseInt64(`${x}`);
+const err = x => log(`[-] ${x}`);
+const hex = x => x.toString(16);
+const i64 = x => host.parseInt64(`${x}`);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const sizeof = x => i64(system(`?? sizeof(${x})`)[0].split(" ")[2]);
+const sizeof = (x, y) => host.getModuleType(x, y).size;
 
-function ptrsize(){ return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize; }
-function pagesize(){ return host.namespace.Debugger.State.PseudoRegisters.General.pagesize; }
-function IsX64(){ return ptrsize() === 8;}
+const LARGE_PAGE_SIZE = 0x200000;
+const NORMAL_PAGE_SIZE = 0x1000;
+
+function ptrsize() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize; }
+function pagesize(isLarge = false) { return isLarge ? LARGE_PAGE_SIZE : NORMAL_PAGE_SIZE; }
+function IsX64() { return ptrsize() === 8; }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
-function $(r){ return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
+function $(r) { return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
+
+function u32(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 4)[0]; }
+function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 8)[0]; }
+function poi(x) { if (IsX64()) return u64(x); else return u32(x); }
+
+function ProcessDirectoryTableBase() { return host.namespace.Debugger.State.DebuggerVariables.curprocess.KernelObject.Pcb.DirectoryTableBase; }
+function GetPfnDatabase() { return poi(host.getModuleSymbolAddress("nt", "MmPfnDatabase")); }
 
 
-function u32(x, k=false){if(!k) return host.memory.readMemoryValues(x, 1, 4)[0];let cmd = `!dd 0x${x.toString(16)}`;let res = system(cmd)[0].split(" ").filter(function(v,i,a){return v.length > 0 && v != "#";});return i64(`0x${res[1].replace("`","")}`);}
-function u64(x, k=false){if(!k) return host.memory.readMemoryValues(x, 1, 8)[0];let cmd = `!dq 0x${x.toString(16)}`;let res = system(cmd)[0].split(" ").filter(function(v,i,a){return v.length > 0 && v != "#";});return i64(`0x${res[1].replace("`","")}`);}
-function poi(x){ if(IsX64()) return u64(x); else return u32(x);}
-
-
-function GetPfnDatabase()
-{
-    return poi(host.getModuleSymbolAddress("nt", "MmPfnDatabase"));
-}
-
-
-class PageEntryFlags
-{
-    constructor(flags)
-    {
+class PageEntryFlags {
+    constructor(flags) {
         this.__flags = flags;
         /**
         kd> dt nt!_MMPTE_HARDWARE
@@ -87,50 +83,45 @@ class PageEntryFlags
         +0x000 Write            : Pos 11, 1 Bit
         [...]
         */
-        this.Present        = this.__flags.bitwiseAnd( 0b000000000001 ) > 0 ? true : false;
-        this.WriteEnabled   = this.__flags.bitwiseAnd( 0b000000000010 ) > 0 ? true : false;
-        this.Owner          = this.__flags.bitwiseAnd( 0b000000000100 ) > 0 ? true : false;
-        this.WriteThrough   = this.__flags.bitwiseAnd( 0b000000001000 ) > 0 ? true : false;
-        this.CacheDisabled  = this.__flags.bitwiseAnd( 0b000000010000 ) > 0 ? true : false;
-        this.Accessed       = this.__flags.bitwiseAnd( 0b000000100000 ) > 0 ? true : false;
-        this.Dirty          = this.__flags.bitwiseAnd( 0b000001000000 ) > 0 ? true : false;
-        this.LargePage      = this.__flags.bitwiseAnd( 0b000010000000 ) > 0 ? true : false;
-        this.Global         = this.__flags.bitwiseAnd( 0b000100000000 ) > 0 ? true : false;
-
-        this.NoExecute      = this.__flags.bitwiseAnd( 0x80000000 ) > 0 ? true : false;
+        this.Present = this.__flags.bitwiseAnd(0b000000000001) > 0 ? true : false;
+        this.WriteEnabled = this.__flags.bitwiseAnd(0b000000000010) > 0 ? true : false;
+        this.Owner = this.__flags.bitwiseAnd(0b000000000100) > 0 ? true : false;
+        this.WriteThrough = this.__flags.bitwiseAnd(0b000000001000) > 0 ? true : false;
+        this.CacheDisabled = this.__flags.bitwiseAnd(0b000000010000) > 0 ? true : false;
+        this.Accessed = this.__flags.bitwiseAnd(0b000000100000) > 0 ? true : false;
+        this.Dirty = this.__flags.bitwiseAnd(0b000001000000) > 0 ? true : false;
+        this.LargePage = this.__flags.bitwiseAnd(0b000010000000) > 0 ? true : false;
+        this.Global = this.__flags.bitwiseAnd(0b000100000000) > 0 ? true : false;
+        this.NoExecute = this.__flags.bitwiseAnd(0x80000000) > 0 ? true : false;
     }
 
 
-    FlagsToString()
-    {
-        let res = [];
-        res.push( (this.Present)?"P":"-" );
-        res.push( (this.WriteEnabled)?"Rw":"Rd" );
-        res.push( (this.Owner)?"U":"K" );
-        res.push( (this.WriteThrough)?"W":"-" );
-        res.push( (this.CacheDisabled)?"C":"-" );
-        res.push( (this.Accessed)?"A":"-" );
-        res.push( (this.Dirty)?"D":"-" );
-        res.push( (this.Global)?"G":"-" );
-        res.push( (this.NoExecute)?"Nx":"eX" );
-        return res.join("")
+    FlagsToString() {
+        const str = [
+            this.Present ? "P" : "",
+            this.WriteEnabled ? "RW" : "RO",
+            this.Owner ? "U" : "K",
+            this.WriteThrough ? "W" : "",
+            this.CacheDisabled ? "C" : "",
+            this.Accessed ? "A" : "",
+            this.Dirty ? "D" : "",
+            this.Global ? "G" : "",
+            this.NoExecute ? "Nx" : "eX",
+            this.LargePage ? "LG" : "",
+        ].join(" ");
+        return `[${str}]`
     }
 
 
-    toString()
-    {
-        return `Flags=${this.FlagsToString()}`;
-    }
+    toString() { return `Flags=${this.FlagsToString()}`; }
 }
 
 
-class PageGenericEntry
-{
-    constructor(address)
-    {
+class PageGenericEntry {
+    constructor(address) {
         this.address = address;
-        this.value = u64(address, true);
-        this.flags = new PageEntryFlags(this.value.bitwiseAnd(0b111111111111) );
+        this.value = u64(this.address, true);
+        this.Flags = new PageEntryFlags(this.value.bitwiseAnd(0xfff));
 
         /**
         kd> dt nt!_MMPTE_HARDWARE
@@ -141,87 +132,90 @@ class PageGenericEntry
         +0x000 WsleAge          : Pos 56, 4 Bits
         +0x000 WsleProtection   : Pos 60, 3 Bits
         */
-       this.pfn_index = this.value.bitwiseShiftLeft(16).bitwiseShiftRight(16).bitwiseShiftRight(12).bitwiseAnd(0xFFFFFFFFF);
-       this.__pfn_o = GetPfnEntry(this.pfn_index);
-       this.physical_page_address = this.pfn_index.bitwiseShiftLeft(12);
+        if (this.Flags.LargePage) {
+            this.PageFrameNumber = this.value
+                .bitwiseShiftRight(21).bitwiseAnd(0x3fffffff); // 30 bits
+            this.Pfn = GetPfnEntry(this.PageFrameNumber);
+            this.PhysicalPageAddress = this.PageFrameNumber.bitwiseShiftLeft(21);
+        } else {
+            this.PageFrameNumber = this.value
+                .bitwiseShiftRight(12).bitwiseAnd(0xfffffffff);
+            this.Pfn = GetPfnEntry(this.PageFrameNumber);
+            this.PhysicalPageAddress = this.PageFrameNumber.bitwiseShiftLeft(12);
+        }
     }
 
-    get pfn()
-    {
-        return this.__pfn_o;
+    get Pte() {
+        return this.Pfn.PteAddress;
     }
-
-    get pte()
-    {
-        return this.__pfn_o.PteAddress;
-    }
-
 }
 
 
-class PageTableEntry extends PageGenericEntry
-{
-   toString() {return `PTE(PA=${hex(this.physical_page_address)}, PFN=${hex(this.pfn_index)}, ${this.flags})` };
+class PageTableEntry extends PageGenericEntry {
+    toString() { return `PTE(PA=${hex(this.PhysicalPageAddress)}, PFN=${hex(this.PageFrameNumber)}, ${this.Flags})` };
 }
 
 
-class PageDirectoryEntry extends PageGenericEntry
-{
-    toString() {return `PDE(PA=${hex(this.physical_page_address)}, PFN=${hex(this.pfn_index)}, ${this.flags})`;}
+class PageDirectoryEntry extends PageGenericEntry {
+    toString() { return `PDE(PA=${hex(this.PhysicalPageAddress)}, PFN=${hex(this.PageFrameNumber)}, ${this.Flags})`; }
 }
 
 
 
-class PagedVirtualAddress
-{
-    constructor(addr)
-    {
-        system("r"); // hack: artificially refresh the register array
-        this.va = i64(addr);
-        this.cr3 = i64( $("cr3") ).bitwiseAnd(0xFFFFF000);
+class PagedVirtualAddress {
+    constructor(addr) {
+        const _ptrsize = ptrsize();
+        this.va = addr;
+        this.cr3 = ProcessDirectoryTableBase().bitwiseShiftRight(12).bitwiseShiftLeft(12);
+        this.pml4e_offset = this.va.bitwiseShiftRight(39).bitwiseAnd(0x1ff);
+        this.pdpe_offset = this.va.bitwiseShiftRight(30).bitwiseAnd(0x1ff);
+        this.pde_offset = this.va.bitwiseShiftRight(21).bitwiseAnd(0x1ff);
 
-        this.pml4e_offset = this.va.bitwiseShiftRight(39).bitwiseAnd(0b111111111);
-        this.pdpe_offset = this.va.bitwiseShiftRight(30).bitwiseAnd(0b111111111);
-        this.pde_offset = this.va.bitwiseShiftRight(21).bitwiseAnd(0b111111111);
-        this.pte_offset = this.va.bitwiseShiftRight(12).bitwiseAnd(0b111111111);
-        this.offset = this.va.bitwiseAnd(0xFFF);
+        this.cr3_flags = new PageEntryFlags(this.cr3.bitwiseAnd(0xfff));
+        if (!this.cr3_flags.Present) { return; }
+        this.pml4e = new PageDirectoryEntry(this.cr3.add(this.pml4e_offset.multiply(_ptrsize)));
+        if (!this.pml4e.Flags.Present) { return; }
+        this.pdpe = new PageDirectoryEntry(this.pml4e.PhysicalPageAddress.add(this.pdpe_offset.multiply(_ptrsize)));
+        if (!this.pdpe.Flags.Present) { return; }
+        this.pde = new PageDirectoryEntry(this.pdpe.PhysicalPageAddress.add(this.pde_offset.multiply(_ptrsize)));
+        if (!this.pde.Flags.Present) { return; }
 
-        this.pml4e = new PageDirectoryEntry(this.cr3.add(this.pml4e_offset.multiply(ptrsize())) );
-        this.pdpe = new PageDirectoryEntry( this.pml4e.physical_page_address.add(this.pdpe_offset.multiply(ptrsize())) );
-        this.pde = new PageDirectoryEntry( this.pdpe.physical_page_address.add(this.pde_offset.multiply(ptrsize())) );
-        this.pte = new PageTableEntry( this.pde.physical_page_address.add(this.pte_offset.multiply(ptrsize())) );
-        this.pa = this.pte.physical_page_address.add(this.offset);
+        if (this.pde.Flags.LargePage) {
+            this.offset = this.va.bitwiseAnd(0x1fffff);
+            this.pa = this.pde.PhysicalPageAddress.add(this.offset);
+        } else {
+            this.pte_offset = this.va.bitwiseShiftRight(12).bitwiseAnd(0x1ff);
+            this.pte = new PageTableEntry(this.pde.PhysicalPageAddress.add(this.pte_offset.multiply(_ptrsize)));
+            if (!this.pte.Flags.Present) { return; }
+            this.offset = this.va.bitwiseAnd(0xfff);
+            this.pa = this.pte.PhysicalPageAddress.add(this.offset);
+        }
     }
 
-    get kernel_pxe()
-    {
-        let pte_base = poi(host.getModuleSymbolAddress("nt", "MmPteBase")) ;
+    get kernel_pxe() {
         // equiv. to nt!MiGetPteAddress()
+        let pte_base = poi(host.getModuleSymbolAddress("nt", "MmPteBase"));
         return pte_base.add(this.va.bitwiseShiftRight(9).bitwiseAnd(0x7ffffffff8));
     }
 
-    toString()
-    {
+    toString() {
         return `VA=0x${hex(this.va)}, PA=0x${hex(this.pa)}, Offset=0x${hex(this.offset)}`;
     }
 }
 
 
-function PageTableExplorer(addr)
-{
-    if ( !IsKd() || !IsX64() )
-    {
+function PageTableExplorer(addr) {
+    if (!IsKd() || !IsX64()) {
         err("Only KD+x64");
         return;
     }
 
-    if (addr === undefined)
-    {
+    if (addr === undefined) {
         err(`invalid address`);
         return;
     }
 
-    return new PagedVirtualAddress( i64(addr) );
+    return new PagedVirtualAddress(i64(addr));
 }
 
 
@@ -229,9 +223,8 @@ function PageTableExplorer(addr)
 /**
  *
  */
-function GetPfnEntry(idx)
-{
-    let addr = GetPfnDatabase().add( i64(idx).multiply(sizeof("nt!_MMPFN")));
+function GetPfnEntry(idx) {
+    const addr = GetPfnDatabase().add(i64(idx).multiply(sizeof("nt", "_MMPFN")));
     return host.createTypedObject(addr, "nt", "_MMPFN");
 }
 
@@ -240,8 +233,7 @@ function GetPfnEntry(idx)
 /**
  *
  */
-function PhysicalAddressToVirtualAddress(addr)
-{
+function PhysicalAddressToVirtualAddress(addr) {
     // get the pfn index from the physical address
     let pfnIndex = addr.bitwiseShiftRight(12);
     ok(`idx = ${pfnIndex.toString(16)}`);
@@ -249,7 +241,7 @@ function PhysicalAddressToVirtualAddress(addr)
     //let pfn = new host.typeSystem.arrayDimension(pPfnDatabase, pfnDbLengh, sizeof("_MMPFN")); // bad idea
 
     // get the pfn entry
-    let pfnEntry  = GetPfnEntry(pfnIndex);
+    let pfnEntry = GetPfnEntry(pfnIndex);
     ok(`entry = ${pfnEntry.toString(16)}`);
 
     // todo finish
@@ -263,8 +255,7 @@ function PhysicalAddressToVirtualAddress(addr)
 /**
  *
  */
-function invokeScript(addr)
-{
+function invokeScript(addr) {
     log(PageTableExplorer(addr).toString());
 }
 
@@ -272,10 +263,9 @@ function invokeScript(addr)
 /**
  *
  */
-function initializeScript()
-{
+function initializeScript() {
     return [
-        new host.apiVersionSupport(1, 3),
+        new host.apiVersionSupport(1, 7),
         new host.functionAlias(PageTableExplorer, "pte2"),
         new host.functionAlias(GetPfnEntry, "pfn2"),
         new host.functionAlias(PhysicalAddressToVirtualAddress, "pa2va"),
