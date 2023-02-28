@@ -36,7 +36,7 @@ const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 
-function sizeof(x) { let p = x.split("!"); return host.getModuleType(p[0], p[1]).size; }
+const sizeof = (x, y) => host.getModuleType(x, y).size;
 function GetSymbolFromAddress(x) { return system(`.printf "%y", ${x.toString(16)}`).First(); }
 function IsX64() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize === 8; }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
