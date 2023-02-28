@@ -677,7 +677,7 @@ class DynamicRelocationFunctionOverrideEntry {
 
     get OverridingRVAs() {
         let rvas = [];
-        const RvaBase = this.Address.add(16); // sizeof(_IMAGE_FUNCTION_OVERRIDE_DYNAMIC_RELOCATION)
+        const RvaBase = this.Address.add(sizeof("combase", "_IMAGE_FUNCTION_OVERRIDE_DYNAMIC_RELOCATION"));
         for (let i = 0; i < this.Raw.RvaSize; i += 4) {
             const addr = RvaBase.add(i);
             rvas.push(i64(u32(addr)));
@@ -766,7 +766,7 @@ class DynamicRelocationTableEntry {
 
     *[Symbol.iterator]() {
         let i = 0;
-        let off = i64(0x0c); // sizeof(_IMAGE_DYNAMIC_RELOCATION64)
+        let off = i64(sizeof("combase", "_IMAGE_DYNAMIC_RELOCATION64"));
         while (off.compareTo(this.Raw.BaseRelocSize) < 0) {
             if (this.__Symbol == 7) {
                 let entry = new DynamicRelocationFunctionOverride(this.Address.add(off), this.BaseAddress);
@@ -790,7 +790,7 @@ class DynamicRelocationTable {
 
     *[Symbol.iterator]() {
         let i = 0;
-        let off = i64(8); // sizeof(_IMAGE_DYNAMIC_RELOCATION_TABLE)
+        let off = sizeof("combase", "_IMAGE_DYNAMIC_RELOCATION_TABLE");
         while (off < this.Raw.Size) {
             let entry = new DynamicRelocationTableEntry(this.Raw.address.add(off), this.__parent.BaseAddress);
             yield new host.indexedValue(entry, [i]);

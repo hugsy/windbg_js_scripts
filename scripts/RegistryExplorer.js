@@ -15,7 +15,7 @@ const err = x => log(`[-] ${x}`);
 const hex = x => x.toString(16);
 const i64 = x => host.parseInt64(x);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const sizeof = x => parseInt((system(`?? sizeof(${x})`)[0].split(" ")[2]), 16);
+const sizeof = (x, y) => host.getModuleType(x, y).size;
 const u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
@@ -122,7 +122,7 @@ function GetCellAddress(KeyHive, Index) {
     let Offset = GetCellOffset(Index);
     let Map = KeyHive.Storage[Type].Map; // nt!_HMAP_DIRECTORY
     let MapTableEntry = Map.Directory[Table]; // nt!_HMAP_TABLE -> nt!_HMAP_ENTRY
-    let Entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt!_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
+    let Entry = host.createPointerObject(MapTableEntry.address.add(Block * sizeof("nt", "_HMAP_ENTRY")), "nt", "_HMAP_ENTRY*");
     let BinAddress = Entry.PermanentBinAddress.bitwiseAnd(~0x0f);
     let CellAddress = BinAddress.add(Entry.BlockOffset).add(Offset);
     return CellAddress;
@@ -246,7 +246,7 @@ class KeyNode {
 
 
     *__WalkPermanentSubkeys() {
-        let sizeof_cm_index = sizeof("nt!_CM_INDEX");
+        let sizeof_cm_index = sizeof("nt", "_CM_INDEX");
 
         for (let i = 0; i < 1; i++) // make i < 2 to see the Volatile subkeys
         {

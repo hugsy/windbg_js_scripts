@@ -19,7 +19,6 @@ const err = x => log(`[-] ${x}`);
 const hex = x => x.toString(16);
 const i64 = x => host.parseInt64(x);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
-const sizeof = x => i64(system(`?? sizeof(${x})`)[0].split(" ")[2]);
 const u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
@@ -55,22 +54,20 @@ NTSTATUS NtCreateUserProcess(
     PPS_ATTRIBUTE_LIST AttributeList
 )
 */
-function NewProcessCallback(ImageName)
-{
+function NewProcessCallback(ImageName) {
     //
     // Examine the parameters of `nt!NtCreateUserProcess`, extract the process parameter arg, and
     // check the command line
     //
     const sp = $("rsp");
     const ProcessParameters = host.createTypedObject(
-        u64(sp.add( ptrsize() * 9 )),
+        u64(sp.add(ptrsize() * 9)),
         "nt",
         "_RTL_USER_PROCESS_PARAMETERS"
     );
 
     const CommandLine = ProcessParameters.ImagePathName.toString().toLowerCase();
-    if(CommandLine.includes(ImageName) === false)
-    {
+    if (CommandLine.includes(ImageName) === false) {
         return false; // continue execution
     }
 
@@ -82,10 +79,9 @@ function NewProcessCallback(ImageName)
     system("gu");
     const Status = $("rax");
 
-    if (Status.compareTo(0) == 0)
-    {
+    if (Status.compareTo(0) == 0) {
         const Handle = curprocess().Io.Handles[u32(rcx)];
-        assert( Handle.Type == "Process");
+        assert(Handle.Type == "Process");
 
         const Eprocess = host.createTypedObject(
             Handle.Object.UnderlyingObject.targetLocation.address,
@@ -105,10 +101,8 @@ function NewProcessCallback(ImageName)
 }
 
 
-function BreakOnNewProcess(ImageName)
-{
-    if (!IsKd())
-    {
+function BreakOnNewProcess(ImageName) {
+    if (!IsKd()) {
         err("Kernel Debugging Only");
         return;
     }
@@ -121,15 +115,13 @@ function BreakOnNewProcess(ImageName)
 host.metadata.defineMetadata(this, { BreakOnNewProcess: { Help: "[KD] Break when a new process is created" } });
 
 
-function invokeScript()
-{
+function invokeScript() {
     let args = ""; // <<- break on *all* processes
     BreakOnNewProcess(args);
 }
 
 
-function initializeScript()
-{
+function initializeScript() {
     return [
         new host.apiVersionSupport(1, 3),
         new host.functionAlias(BreakOnNewProcess, "pbreak"),
