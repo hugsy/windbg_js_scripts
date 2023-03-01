@@ -66,56 +66,51 @@ function GetPfnDatabase() { return poi(host.getModuleSymbolAddress("nt", "MmPfnD
 
 class PageEntryFlags {
     constructor(flags) {
-        this.__flags = flags;
-        /**
-        kd> dt nt!_MMPTE_HARDWARE
-        +0x000 Valid            : Pos 0, 1 Bit
-        +0x000 Dirty1           : Pos 1, 1 Bit
-        +0x000 Owner            : Pos 2, 1 Bit
-        +0x000 WriteThrough     : Pos 3, 1 Bit
-        +0x000 CacheDisable     : Pos 4, 1 Bit
-        +0x000 Accessed         : Pos 5, 1 Bit
-        +0x000 Dirty            : Pos 6, 1 Bit
-        +0x000 LargePage        : Pos 7, 1 Bit
-        +0x000 Global           : Pos 8, 1 Bit
-        +0x000 CopyOnWrite      : Pos 9, 1 Bit
-        +0x000 Unused           : Pos 10, 1 Bit
-        +0x000 Write            : Pos 11, 1 Bit
-        [...]
-        */
-        this.Present = this.__flags.bitwiseAnd(0b000000000001) > 0 ? true : false;
-        this.WriteEnabled = this.__flags.bitwiseAnd(0b000000000010) > 0 ? true : false;
-        this.Owner = this.__flags.bitwiseAnd(0b000000000100) > 0 ? true : false;
-        this.WriteThrough = this.__flags.bitwiseAnd(0b000000001000) > 0 ? true : false;
-        this.CacheDisabled = this.__flags.bitwiseAnd(0b000000010000) > 0 ? true : false;
-        this.Accessed = this.__flags.bitwiseAnd(0b000000100000) > 0 ? true : false;
-        this.Dirty = this.__flags.bitwiseAnd(0b000001000000) > 0 ? true : false;
-        this.LargePage = this.__flags.bitwiseAnd(0b000010000000) > 0 ? true : false;
-        this.Global = this.__flags.bitwiseAnd(0b000100000000) > 0 ? true : false;
-        this.NoExecute = this.__flags.bitwiseAnd(0x80000000) > 0 ? true : false;
+        this.Raw = flags;
+        this.Present = flags.bitwiseAnd(0b000000000001) > 0;
+        this.ReadWrite = flags.bitwiseAnd(0b000000000010) > 0;
+        this.UserSupervisor = flags.bitwiseAnd(0b000000000100) > 0;
+        this.WriteThrough = flags.bitwiseAnd(0b000000001000) > 0;
+        this.CacheDisabled = flags.bitwiseAnd(0b000000010000) > 0;
+        this.Accessed = flags.bitwiseAnd(0b000000100000) > 0;
+        this.Dirty = flags.bitwiseAnd(0b000001000000) > 0;
+        this.LargePage = flags.bitwiseAnd(0b000010000000) > 0;
+        this.Global = flags.bitwiseAnd(0b000100000000) > 0;
     }
-
 
     FlagsToString() {
         const str = [
-            this.Present ? "P" : "",
-            this.WriteEnabled ? "RW" : "RO",
-            this.Owner ? "U" : "K",
-            this.WriteThrough ? "W" : "",
-            this.CacheDisabled ? "C" : "",
-            this.Accessed ? "A" : "",
-            this.Dirty ? "D" : "",
-            this.Global ? "G" : "",
-            this.NoExecute ? "Nx" : "eX",
-            this.LargePage ? "LG" : "",
+            this.Present ? "P" : "-",
+            this.ReadWrite ? "RW" : "RO",
+            this.UserSupervisor ? "U" : "K",
+            this.WriteThrough ? "W" : "-",
+            this.CacheDisabled ? "C" : "-",
+            this.Accessed ? "A" : "-",
+            this.Dirty ? "D" : "-",
+            this.LargePage ? "LG" : "-",
+            this.Global ? "G" : "-",
         ].join(" ");
-        return `[${str}]`
+        return `[${str}]`;
     }
-
 
     toString() { return `Flags=${this.FlagsToString()}`; }
 }
 
+class Cr3Flags {
+    constructor(flags) {
+        this.Raw = flags;
+        this.WriteThrough = flags.bitwiseAnd(0b000000001000) > 0;
+        this.CacheDisabled = flags.bitwiseAnd(0b000000010000) > 0;
+    }
+
+    toString() {
+        const str = [
+            this.WriteThrough ? "W" : "-",
+            this.CacheDisabled ? "C" : "-",
+        ].join(" ");
+        return `[${str}]`;
+    }
+}
 
 class PageGenericEntry {
     constructor(address) {
@@ -161,18 +156,18 @@ class PageDirectoryEntry extends PageGenericEntry {
 }
 
 
-
 class PagedVirtualAddress {
     constructor(addr) {
         const _ptrsize = ptrsize();
         this.va = addr;
-        this.cr3 = ProcessDirectoryTableBase().bitwiseShiftRight(12).bitwiseShiftLeft(12);
+        const PageBase = ProcessDirectoryTableBase();
+        this.cr3 = PageBase.bitwiseShiftRight(12).bitwiseShiftLeft(12);
         this.pml4e_offset = this.va.bitwiseShiftRight(39).bitwiseAnd(0x1ff);
         this.pdpe_offset = this.va.bitwiseShiftRight(30).bitwiseAnd(0x1ff);
         this.pde_offset = this.va.bitwiseShiftRight(21).bitwiseAnd(0x1ff);
 
-        this.cr3_flags = new PageEntryFlags(this.cr3.bitwiseAnd(0xfff));
-        if (!this.cr3_flags.Present) { return; }
+        this.cr3_flags = new Cr3Flags(PageBase.bitwiseAnd(0x18));
+
         this.pml4e = new PageDirectoryEntry(this.cr3.add(this.pml4e_offset.multiply(_ptrsize)));
         if (!this.pml4e.Flags.Present) { return; }
         this.pdpe = new PageDirectoryEntry(this.pml4e.PhysicalPageAddress.add(this.pdpe_offset.multiply(_ptrsize)));

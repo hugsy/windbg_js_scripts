@@ -19,12 +19,13 @@ const hex = x => x.toString(16);
 const i64 = x => host.parseInt64(x);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const sizeof = (x, y) => host.getModuleType(x, y).size;
-const u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
-const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
-const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
-const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 const FIELD_OFFSET = (t, n) => parseInt(system(`?? #FIELD_OFFSET(${t}, ${n})`).First().split(" ")[1].replace("0n", ""));
 const CONTAINING_RECORD = (a, t, n) => a.substract(FIELD_OFFSET(t, n));
+
+function u8(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 1)[0]; }
+function u16(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 2)[0]; }
+function u32(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 4)[0]; }
+function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 8)[0]; }
 
 function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
 function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
