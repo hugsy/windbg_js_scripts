@@ -8,7 +8,6 @@
 
 "use strict";
 
-
 Object.prototype.toString = function () { if (this.__Name !== undefined) { return `${this.__Name}` }; if (this.__Path !== undefined) { return `${this.__Path}` }; return ``; };
 
 const log = x => host.diagnostics.debugLog(`${x}\n`);
@@ -29,11 +28,12 @@ function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } retu
 
 function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
 function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
-function ptrsize() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize; }
-function pagesize() { return host.namespace.Debugger.State.PseudoRegisters.General.pagesize; }
+function curthread() { return host.namespace.Debugger.State.DebuggerVariables.curthreadd; }
+function ptrsize() { return cursession().Attributes.Machine.PointerSize; }
+function pagesize() { return cursession().Attributes.Machine.PageSize; }
 function IsX64() { return ptrsize() === 8; }
-function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
-function $(r) { return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
+function IsKd() { return cursession().Attributes.Target.IsKernelTarget === true; }
+function $(r) { return IsKd() ? curthread().Registers.User[r] || curthread().Registers.Kernel[r] : curthread().Registers.User[r]; }
 function GetSymbolFromAddress(x) { return system(`.printf "%y", ${x.toString(16)}`).First(); }
 function poi(x) { return IsX64() ? u64(x) : u32(x); }
 function assert(condition) { if (!condition) { throw new Error("Assertion failed"); } }
