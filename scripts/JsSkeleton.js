@@ -50,6 +50,9 @@ function invokeScript() {
  *
  */
 function initializeScript() {
+    return [
+        new host.apiVersionSupport(1, 7),
+    ];
 }
 
 
