@@ -21,14 +21,14 @@ const sizeof = (x, y) => host.getModuleType(x, y).size;
 const FIELD_OFFSET = (t, n) => parseInt(system(`?? #FIELD_OFFSET(${t}, ${n})`).First().split(" ")[1].replace("0n", ""));
 const CONTAINING_RECORD = (a, t, n) => a.substract(FIELD_OFFSET(t, n));
 
-function u8(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 1)[0]; }
-function u16(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 2)[0]; }
-function u32(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 4)[0]; }
-function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 8)[0]; }
+function u8(x, phy = false) { if (phy) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 1)[0]; }
+function u16(x, phy = false) { if (phy) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 2)[0]; }
+function u32(x, phy = false) { if (phy) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 4)[0]; }
+function u64(x, phy = false) { if (phy) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 8)[0]; }
 
 function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
 function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
-function curthread() { return host.namespace.Debugger.State.DebuggerVariables.curthreadd; }
+function curthread() { return host.namespace.Debugger.State.DebuggerVariables.curthread; }
 function ptrsize() { return cursession().Attributes.Machine.PointerSize; }
 function pagesize() { return cursession().Attributes.Machine.PageSize; }
 function IsX64() { return ptrsize() === 8; }
