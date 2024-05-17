@@ -136,7 +136,9 @@ class EntryGeneric {
 
     get Description() {
         if (this.IsValid() === false)
-            return "Not Present, Not Valid"
+            return "Not Present, Not Valid";
+        if (this.Object.Bits === undefined)
+            return "";
         let bIsLongMode = (this.Object.Bits.LongMode.bitwiseAnd(1) === 1);
         return bIsLongMode ? GDT_TYPES_X86[this.Object.Bits.Type] : GDT_TYPES_X64[this.Object.Bits.Type];
     }

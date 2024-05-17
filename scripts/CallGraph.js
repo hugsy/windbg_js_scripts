@@ -14,12 +14,15 @@
  * Example
  * windbg> !callgraph "ntdll!NtCreateFile"
  * or
- * windbg> !callgraph 0x41424344
+ * windbg> dx @$callgraph("0x41424344")
  * or
  * windbg> !callgraph
  */
 
 const log = x => host.diagnostics.debugLog(`${x}\n`);
+const ok = x => log(`[+] ${x}`);
+const warn = x => log(`[!] ${x}`);
+const err = x => log(`[-] ${x}`);
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
 const u8 = x => host.memory.readMemoryValues(x, 1, 1)[0];
 const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
@@ -91,67 +94,58 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address) {
  */
 function CallGraph(location) {
     let target;
-    let pc;
-
-    try {
-        pc = IsX64() ? $("rip") : $("eip");
-    }
-    catch (e) {
-        pc = 0;
-    }
+    const pc = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip;
 
     if (location === undefined) {
         target = pc;
     }
     else if (location.toString().startsWith("0x")) {
-        target = host.evaluateExpression(location);
+        target = host.parseInt64(location);
     }
     else {
         target = GetAddressFromSymbol(location);
     }
 
+    ok(`target=${target}`);
+
     if (target === undefined || target === null) {
-        log("[-] unknown target");
+        err("No valid location provided");
         return
     }
 
     let dis = host.namespace.Debugger.Utility.Code.CreateDisassembler();
     let fun = dis.DisassembleFunction(target);
     let bbs = fun.BasicBlocks; //.ToArray();
-    // let nb_bbs = bbs.Count();
+    // let bbs = dis.DisassembleBlocks(target);
+    let nb_bbs = bbs.Count();
 
-    // log("[+] Found " + nb_bbs.toString() + " basic blocks");
-    // if (nb_bbs == 0)
-    // {
-    //     return;
-    // }
+    ok(`Found ${nb_bbs} basic blocks at ${target}`);
+    if (nb_bbs == 0) {
+        return;
+    }
 
 
     //
     // create the basic blocks
     //
 
-    var title = location ? location : target.toString();
-
-    var OutputStr = "";
-    OutputStr += `<html><head><title>${title}</title><script src='https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.0.0/mermaid.min.js'/></head>`;
+    const title = location ? `${location} (${target.toString(16)})` : target.toString();
+    let OutputStr = `<html><head><title>${title}</title><script src='https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.0.0/mermaid.min.js'/></head>`;
     OutputStr += "<body></script><script>mermaid.initialize({startOnLoad:true});</script>";
     OutputStr += "<div class='mermaid'>\n";
     OutputStr += "graph TD\n\n";
 
-    // log("[+] Create the nodes...");
+    ok("Create the nodes...");
 
-    var i = 0;
-
+    let i = 0;
 
     for (let bb of bbs) {
-        let BlockName = i.toString();
+        const BlockName = i.toString();
         let HighlighBlock = false;
 
         OutputStr += `${BlockName}("\n`;
 
         for (let ins of bb.Instructions) {
-
             if (ins.Address.compareTo(pc) === 0) {
                 OutputStr += "<b>";
                 HighlighBlock = true;
@@ -162,7 +156,6 @@ function CallGraph(location) {
             if (ins.Address.compareTo(pc) === 0) {
                 OutputStr += "</b>";
             }
-
         }
 
         OutputStr += '")\n';
