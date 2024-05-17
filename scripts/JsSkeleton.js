@@ -28,7 +28,7 @@ function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } retu
 
 function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
 function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
-function curthread() { return host.namespace.Debugger.State.DebuggerVariables.curthreadd; }
+function curthread() { return host.namespace.Debugger.State.DebuggerVariables.curthread; }
 function ptrsize() { return cursession().Attributes.Machine.PointerSize; }
 function pagesize() { return cursession().Attributes.Machine.PageSize; }
 function IsX64() { return ptrsize() === 8; }
