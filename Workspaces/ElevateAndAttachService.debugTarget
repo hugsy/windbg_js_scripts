@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TargetConfig Name="Attach Service" LastUsed="2031-01-01T05:23:58.2908827Z" AccentColor="#FFFF0000">
+  <EngineConfig />
+  <EngineOptions>
+    <Property name="Elevate" value="true" />
+    <Property name="Restartable" value="false" />
+  </EngineOptions>
+  <TargetOptions>
+    <Option name="AttachService">
+      <Property name="Elevate" value="true" />
+      <Property name="ServiceName" value="CryptSvc" />
+    </Option>
+    <Option name="RestoreCommandHistory">
+      <Property name="History">
+        <Property value="g" />
+      </Property>
+    </Option>
+    <Option name="RestoreBreakpoints">
+      <Property name="Breakpoints" />
+    </Option>
+  </TargetOptions>
+</TargetConfig>
