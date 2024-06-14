@@ -71,7 +71,7 @@ function Hex2Ascii(hexx) {
 
 
 
-const POOLTAG_FILEPATH = "\\\\ph0ny\\code\\windbg_js_scripts\\extra\\pooltag.txt";
+const POOLTAG_FILEPATH = "\\\\desktop-chris\\code\\windbg_js_scripts\\extra\\pooltag.txt";
 var g_PoolTag_Content = [];
 
 

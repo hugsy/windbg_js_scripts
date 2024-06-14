@@ -85,17 +85,18 @@ class NotifyCallbackEntry {
 
 
     toString() {
-        let msg = `${this.Type}: ${this.CallbackSymbolToString()}`;
+        let msg = `${this.Type}(${this.CallbackSymbolToString()}`;
         if (this.FlagsToString().length > 0) {
             msg += `, Flags: ${this.FlagsToString()}`;
         }
+        msg += `)`;
         return msg;
     }
 }
 
 
 
-function* EnumProcessThreadCallbacks(_type) {
+function* EnumGenericCallbacks(_type) {
     let CallbackTable = host.getModuleSymbolAddress("nt", `Psp${_type}NotifyRoutine`);
     let i = 0;
 
@@ -118,10 +119,10 @@ function* EnumShutdownCallbacks() {
 
 /**
  * TODO:
+  - nt!IopDiskFileSystemQueueHead
+  - nt!IopCdRomFileSystemQueueHead
+  - nt!IopTapeFileSystemQueueHead
 - System shutdown
- // - nt!IopDiskFileSystemQueueHead
- // - nt!IopCdRomFileSystemQueueHead
- // - nt!IopTapeFileSystemQueueHead
  - nt!IopNotifyShutdownQueueHead
  - nt!IopNotifyLastChanceShutdownQueueHead
 - Registry
@@ -139,20 +140,21 @@ function* EnumShutdownCallbacks() {
  */
 
 
-function* KdEnumerateCallbacks() {
+function* KdEnumerateCallbacks(_type) {
     if (!IsKd()) {
         err("KD only");
         return;
     }
 
-    /*
-    for (const v of EnumProcessThreadCallbacks("CreateProcess")) { yield v; }
-
-    for (const v of EnumProcessThreadCallbacks("CreateThread")) { yield v; }
-
-    for (const v of EnumProcessThreadCallbacks("LoadImage")) { yield v; }
-    */
-
+    if (_type == "process") {
+        for (const v of EnumGenericCallbacks("CreateProcess")) { yield v; }
+    }
+    if (_type == "thread") {
+        for (const v of EnumGenericCallbacks("CreateThread")) { yield v; }
+    }
+    if (_type == "image") {
+        for (const v of EnumGenericCallbacks("LoadImage")) { yield v; }
+    }
 }
 
 
@@ -170,7 +172,7 @@ function invokeScript() {
 function initializeScript() {
     return [
         new host.apiVersionSupport(1, 3),
-        new host.functionAlias(KdEnumerateCallbacks, "enumcb"),
+        new host.functionAlias(KdEnumerateCallbacks, "kcb"),
     ];
 }
 
