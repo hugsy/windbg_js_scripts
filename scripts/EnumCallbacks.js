@@ -1,5 +1,5 @@
 ///
-/// <reference path="JSProvider.d.ts" />
+/// <reference path="../extra/JSProvider.d.ts" />
 ///
 /// @ts-check
 ///

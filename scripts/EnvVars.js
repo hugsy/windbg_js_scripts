@@ -11,8 +11,11 @@
 
 "use strict";
 
-const log = x => host.diagnostics.debugLog(x + "\n");
-
+const log = x => host.diagnostics.debugLog(`${x}\n`);
+const ok = x => log(`[+] ${x}`);
+const warn = x => log(`[!] ${x}`);
+const err = x => log(`[-] ${x}`);
+function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
 
 class EnvironmentVariable {
     constructor(addr, name, value) {
@@ -31,7 +34,7 @@ class EnvironmentVariable {
  * Generator to inspect the PEB looking for the Environment variables from PEB
  */
 function* GetEnvironmentVariables() {
-    var Peb = host.namespace.Debugger.Sessions[0].Processes.First().Environment.EnvironmentBlock;
+    var Peb = curprocess().Environment.EnvironmentBlock;
     var EnvVarBlockAddr = Peb.ProcessParameters.Environment.address;
     var off = 0;
     while (true) {

@@ -34,8 +34,7 @@
  * To use, add "/// <reference path="JSProvider.d.ts" /> " at the top of the
  * script
  */
-interface frameInterface
-{
+interface frameInterface {
     /**
      * The list of (non parameter) local variables in scope at this location in the call stack.  Each such local is available
      * as a property of this object.
@@ -49,25 +48,35 @@ interface frameInterface
     Parameters: any;
 }
 
-interface stackInterface
-{
+interface stackInterface {
     /**
      * An iterable of individual frames within the call stack
      */
     Frames: frameInterface[];
 }
 
-interface threadInterface
-{
+interface registerInterface {
+    User: number[];
+    Kernel: number[];
+    SIMD: number[];
+    FloatingPoint: number[];
+    CET: number[];
+}
+
+interface threadInterface {
     /**
      * The thread identifier (TID) for the thread
      */
     Id: number;
+    Index: number;
     Stack: stackInterface;
+    KernelObject: any;
+    Registers: registerInterface;
+    Environment: any;
+    APCs: any;
 }
 
-interface moduleInterface
-{
+interface moduleInterface {
     /**
      * The base address of the module within the address space of a process
      */
@@ -84,8 +93,7 @@ interface moduleInterface
     Size: host.Int64;
 }
 
-interface processInterface
-{
+interface processInterface {
     /**
      * An iterable representing all the threads in the process
      */
@@ -107,23 +115,29 @@ interface processInterface
     Modules: moduleInterface[];
 }
 
-interface sessionInterface
-{
+interface sessionInterface {
     Processes: processInterface[];
+    Id: any;
+    OS: any;
+    Devices: any;
+    Attributes: any;
+    Objects: any;
+    Registry: any;
 }
 
-interface debuggerInterface
-{
+interface debuggerInterface {
     Sessions: sessionInterface[];
+    Settings: Any;
+    State: Any;
+    Utility: Any;
+    LastEvent: Any;
 }
 
-interface namespaceInterface
-{
+interface namespaceInterface {
     Debugger: debuggerInterface;
 }
 
-interface baseClassInterface
-{
+interface baseClassInterface {
     /**
      * The name of the base class.
      */
@@ -140,8 +154,7 @@ interface baseClassInterface
     type: typeObjectInterface;
 }
 
-interface fieldInterface
-{
+interface fieldInterface {
     /**
      * The name of the field.
      */
@@ -174,8 +187,7 @@ interface fieldInterface
     value: any;
 }
 
-interface typeObjectInterface
-{
+interface typeObjectInterface {
     /**
      * The name of the type
      */
@@ -333,7 +345,7 @@ declare namespace host {
     /**
      * Contains the object representing the current thread of the debugger
      */
-    var currentThread : threadInterface;
+    var currentThread: threadInterface;
 
     /**
      * Calls into the debug host to evaluate an expression using the language of the debug target only.  If the optional
@@ -403,8 +415,7 @@ declare namespace host {
      * An object which represents a value with a specified set of indicies.  An iterator which returns values which can be indexed by value through the data model
      * must return instances of this object instead.
      */
-    class indexedValue
-    {
+    class indexedValue {
         /**
          * Constructs an object represnting a value with a specified set of indicies.
          *
@@ -436,96 +447,96 @@ declare namespace host {
         /**
          * Converts the 64-bit value to a JavaScript number. If loss of precision occurs, **AN EXCEPTION IS THROWN**
          */
-        asNumber() : number;
+        asNumber(): number;
 
 
         /**
          * Converts the 64-bit value to a JavaScript number. If loss of precision occurs, **NO EXCEPTION IS THROWN**
          */
-        convertToNumber() : number;
+        convertToNumber(): number;
 
 
         /**
          * Converts the lower 32-bits of the 64-bit value to a JavaScript number
          */
-        getLowPart() : number;
+        getLowPart(): number;
 
 
         /**
          * Converts the high 32-bits of the 64-bit value to a JavaScript number
          */
-        getHighPart() : number;
+        getHighPart(): number;
 
 
         /**
          * Adds a value to the 64-bit value and returns the result
          */
-        add(value : number) : Int64;
-        add(value : Int64) : Int64;
+        add(value: number): Int64;
+        add(value: Int64): Int64;
 
 
         /**
          * Subtracts a value from the 64-bit value and returns the result
          */
-        subtract(value: number) : Int64;
-        subtract(value: Int64) : Int64;
+        subtract(value: number): Int64;
+        subtract(value: Int64): Int64;
 
 
         /**
          * Multiplies the 64-bit value by the supplied value and returns the result
          */
-        multiply(value: Int64) : Int64;
-        multiply(value: number) : Int64;
+        multiply(value: Int64): Int64;
+        multiply(value: number): Int64;
 
 
         /**
          * Divides the 64-bit value by the supplied value and returns the result
          */
-        divide(value: Int64) : Int64;
-        divide(value: number) : Int64;
+        divide(value: Int64): Int64;
+        divide(value: number): Int64;
 
 
         /**
          * Computes the bitwise and of the 64-bit value with the supplied value and returns the result
          */
-        bitwiseAnd(value: number) : Int64;
+        bitwiseAnd(value: number): Int64;
 
 
         /**
          * Computes the bitwise or of the 64-bit value with the supplied value and returns the result
          */
-        bitwiseOr(value: number) : Int64;
+        bitwiseOr(value: number): Int64;
 
 
         /**
          * Computes the bitwise xor of the 64-bit value with the supplied value and returns the result
          */
-        bitwiseXor(value: number) : Int64;
+        bitwiseXor(value: number): Int64;
 
 
         /**
          * Arithmetic shift the 64-bit value left by the given amount and returns the result
          */
-        bitwiseShiftLeft(value: number) : Int64;
+        bitwiseShiftLeft(value: number): Int64;
 
 
         /**
          * Arithmetic right shift the 64-bit value right by the given amount and returns the result
          */
-        bitwiseShiftRight(value: number) : Int64;
+        bitwiseShiftRight(value: number): Int64;
 
 
         /**
          * Converts the 64-bit value to a display string in the default radix (or the optionally supplied radix)
          */
-        toString(radix?: number) : string;
+        toString(radix?: number): string;
 
 
         /**
          * Compares the 64-bit value to the given value, returns 0 if equal
          */
-        compareTo(value: Int64) : number;
-        compareTo(value: number) : number;
+        compareTo(value: Int64): number;
+        compareTo(value: number): number;
     }
 
     /**
@@ -534,8 +545,7 @@ declare namespace host {
      *
      * An instance of this object can be returned in the array of records returned from the initializeScript method.
      */
-    class namedModelParent
-    {
+    class namedModelParent {
         /**
          * Constructs a new registration record representing a link between a JavaScript class (or prototype) and a data model registered under the supplied name.
          *
@@ -551,8 +561,7 @@ declare namespace host {
      *
      * An instance of this object can be returned in the array of records returned from the initializeScript method.
      */
-    class namedModelRegistration
-    {
+    class namedModelRegistration {
         /**
          * Constructs a new registration record representing the registration of a JavaScript class (or prototype) as a data model under a given name.
          *
@@ -621,8 +630,7 @@ declare namespace host {
      *
      * An instance of this object can be returned in the array of records returned from the initializeScript method.
      */
-    class typeSignatureExtension
-    {
+    class typeSignatureExtension {
         /**
          * Constructs a new registration record representing a link between a JavaScript class (or prototype) and an extension for a native type as indicated by a type signature.
          *
@@ -642,8 +650,7 @@ declare namespace host {
      *
      * An instance of this object can be returned in the array of records returned from the initializeScript method.
      */
-    class typeSignatureRegistration
-    {
+    class typeSignatureRegistration {
         /**
          * Constructs a new registration record representing a link between a JavaScript class (or prototype) and a canonical data model (visualizer) for a native type as indicated by a type signature.
          *
@@ -690,8 +697,7 @@ declare namespace host {
     /**
      * A sub-namespace of the host which deals with diagnostic functionality
      */
-    namespace diagnostics
-    {
+    namespace diagnostics {
         /**
          * This provides printf style debugging to a script.  At present, output from debugLog is routed to the output console of the debugger.  At a later
          * point in time, it will be routed to a separate channel for the UI.  This method should never be used as a means of explicit console output.
@@ -707,8 +713,7 @@ declare namespace host {
         var logUnhandledExceptions: bool;
     }
 
-    namespace memory
-    {
+    namespace memory {
         /**
          * This reads a raw array of values from the address space of the debug target and places a typed array on top of the view of its memory.
          *
@@ -720,6 +725,18 @@ declare namespace host {
          * @return A typed array of 8, 16, 32, or 64 bit signed or unsigned values as indicated by the arguments passed to the method
          */
         function readMemoryValues(location: any, numElements: number, elementSize?: number, isSigned?: number, contextInheritor?: any): any;
+
+        /**
+         * This writes a value or an array of values to the address space of the debug target.
+         *
+         * @param location The location (or address) that the object will be stored in target memory
+         * @param numElements The number of distinct elements to write to target memory.  The element array must be at least this large
+         * @param elementArray An array of elements to convert and write to target memory.  If numElements is one, this may be a single value instead of an array
+         * @param elementSize The size of each element to write to target memory.  If this argument is not specified, the call will write single byte elements.  If an element in the elementArray does not naturally fit into this byte size (e.g.: a value above 255 for an unsigned single byte), an exception will be thrown
+         * @param isSigned Indicates whether the elements being written to target memory are signed or not.  If this argument is not specified, the call will write unsigned values
+         * @param contextInheritor An optional argument which supplies the context in which to write target memory
+         */
+        function writeMemoryValues(location: any, numElements: number, elementArray: any, elementSize?: number, isSigned?: number, contextInheritor?: any): void;
 
         /**
          * This reads a narrow (current code page) string from the address space of the debug target, converts it to UTF-16 and returns the result as a
@@ -762,16 +779,31 @@ declare namespace host {
          * @return A string read from target memory
          */
         function readWideString(location: any, length?: number, contextInheritor?: any): string;
+
+        /**
+         * This function forces a garbage collection.
+         */
+        function collectGarbage(): void;
+
+        /**
+         * This function returns a location object which represents a physical address.  The resulting location
+         * may be passed to any other method which takes a location.  This can, for instance, be used with
+         * readMemoryValues or writeMemoryValues in order to read or write physical memory when debugging
+         * an appropriate kernel level target.
+         *
+         * @param value The value of the physical address.  This can be a number or an Int64 value.  If the highValue parameter is specified, this is the lower 32-bits of the physical address.
+         * @param highValue If present, the upper 32-bits of the physical address.  If this argument is present, value must fit within 32-bits.
+         * @return A location representing a physical address
+         */
+        function physicalAddress(value: number, highValue?: number): any;
     }
 
-    namespace typeSystem
-    {
+    namespace typeSystem {
         /**
          * An object which represents a single dimension within a (potentially) multi-dimensional array.  Dimensions are described by three
          * key values: the lowerBound, the length, and the stride.
          */
-        class arrayDimension
-        {
+        class arrayDimension {
             /**
              * Constructs an object represnting a value with a specified set of indicies.
              *
@@ -802,8 +834,7 @@ declare namespace host {
             stride: host.Int64;
         }
 
-        namespace pointerKind
-        {
+        namespace pointerKind {
             /**
              * Represents a standard pointer (*)
              */
@@ -822,7 +853,7 @@ declare namespace host {
             /**
              * Represents a pointer which is in reality a C++/CX hat (^)
              */
-            cxHat : number;
+            cxHat: number;
         }
     }
 }
