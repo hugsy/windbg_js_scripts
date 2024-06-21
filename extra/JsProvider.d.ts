@@ -127,10 +127,10 @@ interface sessionInterface {
 
 interface debuggerInterface {
     Sessions: sessionInterface[];
-    Settings: Any;
-    State: Any;
-    Utility: Any;
-    LastEvent: Any;
+    Settings: any;
+    State: any;
+    Utility: any;
+    LastEvent: any;
 }
 
 interface namespaceInterface {
@@ -186,6 +186,19 @@ interface fieldInterface {
      */
     value: any;
 }
+
+interface bitFieldInterface {
+    /**
+     * The bit position of the least significant bit of the bitfield.
+     */
+    lsb: number;
+
+    /**
+     * The length (in bits) of the bitfield.
+     */
+    length: number;
+}
+
 
 interface typeObjectInterface {
     /**
@@ -248,7 +261,7 @@ interface typeObjectInterface {
     /**
      * This indicates whether the type is a generic (e.g.: template) type.
      */
-    isGeneric: bool;
+    isGeneric: boolean;
 
     /**
      * For types which are generic, this returns the generic arguments.  Such can be type objects or other values.
@@ -258,7 +271,7 @@ interface typeObjectInterface {
     /**
      * This returns whether the type is a bitfield.
      */
-    isBitField: bool;
+    isBitField: boolean;
 
     /**
      * This returns the positional layout of a bitfield type.
@@ -267,12 +280,30 @@ interface typeObjectInterface {
 
 }
 
-declare namespace host {
+interface symbolInformationInterface {
+    /**
+     * The name of the queried symbol
+     */
+    name: string;
 
     /**
-     * Returns the address from a symbol.
+     * The address of the queried symbol
      */
-    function getModuleSymbolAddress(module: string, symbolName: string): host.Int64;
+    address: host.Int64;
+
+    /**
+     * A type object representing the type of the queried symbol.  If the queried symbol does not have
+     * a representable type, this may be null
+     */
+    type: typeObjectInterface;
+
+    /**
+     * The value of the queried symbol as would be returned from a call to host.getModuleContainingSymbol.
+     */
+    value: any;
+}
+
+declare namespace host {
 
     /**
      * Declare the WinDbg API version
@@ -390,6 +421,68 @@ declare namespace host {
      * @return An object representing the global symbol
      */
     function getModuleSymbol(moduleName: string, symbolName: string, typeName?: string, contextInheritor?: any): any;
+
+    /**
+     * Returns the address of a global symbol within a particular module.
+     *
+     * @param moduleName The name of the module in which the symbol is located
+     * @param symbolName The name of the symbol to return the address of
+     * @param contextInheritor An optional argument which supplies the context in which the module and symbol names are valid
+     * @return The address of the global symbol
+     */
+    function getModuleSymbolAddress(moduleName: string, symbolName: string, contextInheritor?: any): Int64;
+
+    /**
+     * Returns the address of a global symbol within a particular module.
+     *
+     * @param moduleName The name of the module in which the symbol is located
+     * @param symbolName The name of the symbol to return the address of
+     * @param typeName An optional argument which supplies the name of the type of the global symbol.  If this argument is not specified, the type name is picked up from the symbols.  This argument is mandatory for working on public stripped symbols
+     * @param contextInheritor An optional argument which supplies the context in which the module and symbol names are valid
+     * @return The address of the global symbol
+     */
+    function getModuleSymbolAddress(moduleName: string, symbolName: string, typeName?: string, contextInheritor?: any): Int64;
+
+    /**
+     * Returns an object for a global symbol within a module.  The symbol returned is the one contained at the given location (or address).  This method does not and cannot work with modules which have stripped symbols.
+     *
+     * @param location The location (or address) that the symbol is stored at in target memory
+     * @return An object representing the global symbol
+     */
+    function getModuleContainingSymbol(location: any, contextInheritor?: any): any;
+
+    /**
+     * Returns an information object expressing properties of a global symbol within a module.  The object returned
+     * represents the symbol contained at the given location (or address).  This method may only partially work
+     * with modules which have stripped symbols.
+     *
+     * @param location The location (or address) that the symbol is stored at in target memory
+     * @return An information object expressing properties of the global symbol
+     */
+    function getModuleContainingSymbolInformation(location: any, contextInheritor?: any): symbolInformationInterface;
+
+    /**
+     * Sets a global symbol to the specified value.  This method does not and cannot work with modules which have
+     * have stripped symbols.
+     *
+     * @param moduleName The name of the module in which the symbol is located
+     * @param symbolName The name of the symbol for which to set a value
+     * @param value The value to assign to the symbol
+     * @param contextInheritor An optional argument which supplies the context in which the module and symbol names are value
+     */
+    function setModuleSymbol(moduleName: string, symbolName: string, value: any, contextInheritor?: any): any;
+
+    /**
+     * Sets a global symbol to the specified value.
+     *
+     * @param moduleName The name of the module in which the symbol is located
+     * @param symbolName The name of the symbol for which to set a value
+     * @param value The value to assign to the symbol
+     * @param typeName An optional argument which supplies the name of the type of the global symbol.  If this argument is not specified, the type name is picked up from the symbols.  This argument is mandatory for working on public stripped symbols
+     * @param contextInheritor An optional argument which supplies the context in which the module and symbol names are value
+     */
+    function setModuleSymbol(moduleName: string, symbolName: string, value: any, typeName?: string, contextInheritor?: any): any;
+
 
     /**
      * Returns a type object for a given type within a particular module.
@@ -710,7 +803,7 @@ declare namespace host {
          * When set, indicates that all JavaScript exceptions that escape the script context should be logged to the debug log.  This can be set
          * at any point during script execution.
          */
-        var logUnhandledExceptions: bool;
+        var logUnhandledExceptions: boolean;
     }
 
     namespace memory {
@@ -838,22 +931,45 @@ declare namespace host {
             /**
              * Represents a standard pointer (*)
              */
-            standard: number;
+            var standard: number;
 
             /**
              * Represents a pointer which is in reality a reference (&)
              */
-            reference: number;
+            var reference: number;
 
             /**
              * Represents a pointer which is in reality an r-value reference (&&)
              */
-            rValueReference: number;
+            var rValueReference: number;
 
             /**
              * Represents a pointer which is in reality a C++/CX hat (^)
              */
-            cxHat: number;
+            var cxHat: number;
+        }
+
+        /**
+         * This applies custom marshaling to an object as it exits JavaScript.  This function can be used to ensure that a JavaScript number exits JavaScript as a particular native enum type, for example.
+         *
+         * @param object The object to which to apply custom marshaling
+         * @param moduleName The name of the module containing the type to use for custom marshaling
+         * @param typeName The name of the type to marshal the object out of JavaScript as
+         * @return A library object representing the custom marshaling.
+         */
+        function marshalAs(object: any, moduleName: string, typeName: string): any;
+
+        /**
+         * An object which represents a value with a specified set of metadata attached.  Functions which are accessible outside of JavaScript can associate metadata with a return value by means of returning an instance of this object.
+         */
+        class valueWithMetadata {
+            /**
+             * Constructs an object representing a value with a specified set of metadata.
+             *
+             * @param value The value
+             * @param metadataDescriptor A object containing metadata keys and values as object properties
+             */
+            constructor(value: any, metadataDescriptor: any);
         }
     }
 }

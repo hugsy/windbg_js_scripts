@@ -3,21 +3,97 @@
 ///
 /// @ts-check
 ///
-/// Template file for new WinDbg JS scripts
-///
 "use strict";
+
+/**
+ * When called via `.scriptrun`
+ */
+function invokeScript() {
+}
+
+
+/**
+ * Always called, whether via `.scriptload` or `.scriptrun`
+ */
+function initializeScript() {
+    return [
+        new host.apiVersionSupport(1, 9),
+    ];
+}
+
+
+/**
+ * Always called, using `.scriptunload`
+ */
+function uninitializeScript() {
+}
+
+
+
+
+
+
+
+
 
 Object.prototype.toString = function () { if (this["__Name"] !== undefined) { return `${this["__Name"]}` }; if (this["__Path"] !== undefined) { return `${this["__Path"]}` }; return ``; };
 
+/**
+ * @param {string} x
+ */
 const log = x => host.diagnostics.debugLog(`${x}\n`);
+/**
+ *
+ * @param {string} x
+ */
 const ok = x => log(`[+] ${x}`);
+/**
+ * @param {string} x
+ */
 const warn = x => log(`[!] ${x}`);
+/**
+ * @param {string} x
+ */
 const err = x => log(`[-] ${x}`);
+/**
+ * Returns a hex string of the number
+ * @param {host.Int64} x
+ * @returns {string}
+ */
 const hex = x => x.toString(16);
+/**
+ *
+ * @param {string} x
+ * @returns {host.Int64}
+ */
 const i64 = x => host.parseInt64(x);
+/**
+ * Execute the WinDbg command
+ * @param {string} x
+ * @returns {any}
+ */
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
+/**
+ * Return the sizeof the structure `y` in module `x`
+ * @param {string} x
+ * @param {string} y
+ * @returns {host.Int64}
+ */
 const sizeof = (x, y) => host.getModuleType(x, y).size;
+/**
+ * Return the offset of the field `n` in the structure `t`
+ * @param {string} t
+ * @param {string} n
+ * @returns {number}
+ */
 const FIELD_OFFSET = (t, n) => parseInt(system(`?? #FIELD_OFFSET(${t}, ${n})`).First().split(" ")[1].replace("0n", ""));
+/**
+ * Return the base address of the structure with a field at address `a`, of type `n` in the module `t`
+ * @param {host.Int64} a
+ * @param {string} t
+ * @param {string} n
+ * @returns {host.Int64}
+ */
 const CONTAINING_RECORD = (a, t, n) => a.add(-FIELD_OFFSET(t, n));
 
 /**
@@ -84,7 +160,6 @@ function write32(x, phy = false) { if (phy) { x = host.memory.physicalAddress(x)
  */
 function write64(x, phy = false) { if (phy) { x = host.memory.physicalAddress(x); } return host.memory.writeMemoryValues(x, 1, 8)[0]; }
 
-
 /**
  * @returns {sessionInterface}
  */
@@ -128,9 +203,9 @@ function $(r) { return isKd() ? curthread().Registers.User[r] || curthread().Reg
 
 /**
  * @param {host.Int64} x
- * @returns {string}
+ * @returns {symbolInformationInterface}
  */
-function GetSymbolFromAddress(x) { return system(`.printf "%y", ${x.toString(16)}`).First(); }
+function get_symbol(x) { return host.getModuleContainingSymbolInformation(x); }
 
 /**
  * @param {number} x
@@ -145,25 +220,3 @@ function poi(x) { return is64b() ? read64(x) : read32(x); }
  */
 function assert(condition, message = "") { if (!condition) { throw new Error(`Assertion failed ${message}`); } }
 
-/**
- * When called via `.scriptrun`
- */
-function invokeScript() {
-}
-
-
-/**
- * Always called, whether via `.scriptload` or `.scriptrun`
- */
-function initializeScript() {
-    return [
-        new host.apiVersionSupport(1, 7),
-    ];
-}
-
-
-/**
- * Always called, using `.scriptunload`
- */
-function uninitializeScript() {
-}
