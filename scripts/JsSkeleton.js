@@ -2,6 +2,8 @@
 /// <reference path="../extra/JSProvider.d.ts" />
 ///
 /// @ts-check
+/// @links
+/// - https://aka.ms/JsDbgExt
 ///
 "use strict";
 

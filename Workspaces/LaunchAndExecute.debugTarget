@@ -1,21 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <TargetConfig Name="C:\Windows\System32\notepad.exe" LastUsed="2022-07-14T23:44:46.0958299Z">
-    <EngineConfig />
-    <EngineOptions>
-        <Property name="DebugChildProcesses" value="false" />
-    </EngineOptions>
-    <TargetOptions>
-        <Option name="LaunchProcess">
-            <Property name="Executable" value="C:\Windows\System32\notepad.exe" />
-            <Property name="Arguments" value="" />
-        </Option>
-        <Option name="ExecuteCommand">
-            <Property name="Command" value="bu 4242424242424242" />
-        </Option>
-        <Option name="RestoreCommandHistory">
-            <Property name="History">
-                <Property value="dx @$curprocess.Environment.EnvironmentBlock.ProcessParameters" />
-            </Property>
-        </Option>
-    </TargetOptions>
+  <EngineConfig />
+  <EngineOptions>
+    <Property name="DebugChildProcesses" value="false" />
+  </EngineOptions>
+  <TargetOptions>
+    <Option name="LaunchProcess">
+      <Property name="Executable" value="C:\Windows\System32\notepad.exe" />
+      <Property name="Arguments" value="" />
+    </Option>
+    <Option name="ExecuteCommand">
+      <Property name="Command" value="bu 4242424242424242" />
+    </Option>
+    <Option name="RestoreCommandHistory">
+      <Property name="History">
+        <Property value="bu 4242424242424242" />
+        <Property value="dx @$curprocess.Environment.EnvironmentBlock.ProcessParameters" />
+      </Property>
+    </Option>
+  </TargetOptions>
 </TargetConfig>
