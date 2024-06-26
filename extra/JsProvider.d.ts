@@ -93,6 +93,45 @@ interface moduleInterface {
     Size: host.Int64;
 }
 
+interface ttdProcessInterface {
+    /**
+     * Index
+     */
+    Index: any;
+    /**
+     * Threads
+     */
+    Threads: any;
+    /**
+     * Events
+     */
+    Events: any;
+    /**
+     * DebugOutput
+     */
+    DebugOutput: any;
+    /**
+     * Lifetime
+     */
+    Lifetime: any;
+    /**
+     * DefaultMemoryPolicy
+     */
+    DefaultMemoryPolicy: any;
+    /**
+     * Sets the debugger to point to the given position on this process.
+     */
+    SetPosition: any;
+    /**
+     * GatherMemoryUse
+     */
+    GatherMemoryUse: any;
+    /**
+     * RecordClients
+     */
+    RecordClients: any;
+}
+
 interface processInterface {
     /**
      * An iterable representing all the threads in the process
@@ -113,6 +152,47 @@ interface processInterface {
      * An iterable representing all the modules loaded into the address space of the process
      */
     Modules: moduleInterface[];
+
+    TTD: ttdProcessInterface;
+}
+
+interface ttdSessionInterface {
+    /**
+     * Returns call information from the trace for the specified set of methods: TTD.Calls("module!method1", "module!method2", ...) For example: dx @$cursession.TTD.Calls("user32!SendMessageA")]
+     */
+    Calls: CallableFunction;
+    /**
+     * Returns memory access information for specified address range: TTD.Memory(startAddress, endAddress[, "rwec"])]
+     */
+    Memory: any;
+    /**
+     Returns memory access information for specified address range and position range: TTD.MemoryForPositionRange(startAddress, endAddress[, "rwec"], minPosition, maxPosition)]
+     */
+    MemoryForPositionRange: any;
+    /**
+     Pins an object to the given time position: TTD.PinObjectPosition(obj, pos)]
+     */
+    PinObjectPosition: any;
+    /**
+      AsyncQueryEnabled
+      */
+    AsyncQueryEnabled: boolean;
+    /**
+      RichQueryTypesEnabled
+      */
+    RichQueryTypesEnabled: boolean;
+    /**
+      DefaultParameterCount
+      */
+    DefaultParameterCount: number;
+    /**
+      Normalized data sources based on the contents of the time travel trace
+      */
+    Data: any;
+    /**
+      Methods that can be useful when analyzing time travel traces
+      */
+    Utility: any;
 }
 
 interface sessionInterface {
@@ -123,6 +203,7 @@ interface sessionInterface {
     Attributes: any;
     Objects: any;
     Registry: any;
+    TTD: ttdSessionInterface;
 }
 
 interface debuggerInterface {
