@@ -16,10 +16,10 @@ Object.prototype.toString = function () {
  *
  * Examples:
  * 0:000> .scriptload \path\to\EnumImages.js
- * 0:000> dx -g -r1 @$curprocess.Dlls.Where( x => x.Name == "ntdll.dll" )
+ * 0:000> dx -g -r1 @$curprocess.Images.Where( x => x.Name == "ntdll.dll" )
  *
  * kd> .scriptload \path\to\EnumImages.js
- * kd> dx @$cursession.Modules.Where( x => x.Name.Contains("cdrom.sys") )
+ * kd> dx @$cursession.Images.Where( x => x.Name.Contains("cdrom.sys") )
  *
  */
 
@@ -35,9 +35,11 @@ const u16 = x => host.memory.readMemoryValues(x, 1, 2)[0];
 const u32 = x => host.memory.readMemoryValues(x, 1, 4)[0];
 const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 const system = x => host.namespace.Debugger.Utility.Control.ExecuteCommand(x);
+const dml = (cmd, title) => log(`<?dml?> <exec cmd="${cmd}">${title}</exec>`);
 
 const sizeof = (x, y) => host.getModuleType(x, y).size;
-function GetSymbolFromAddress(x) { return system(`.printf "%y", ${x.toString(16)}`).First(); }
+function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
+function GetSymbolFromAddress(x) { return host.getModuleContainingSymbolInformation(x); }
 function IsX64() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize === 8; }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function BitmaskToString(mask, flags) {
@@ -807,25 +809,27 @@ class DynamicRelocationTable {
 
 class ImageInfo {
     constructor(Module) {
+        this.__isKd = cursession().Attributes.Target.IsKernelTarget === true;
+        this.__symMod = this.__isKd ? "nt" : "ntdll";
         this.__Module = Module
         this.BaseAddress = Module.BaseAddress;
-        this.RawDos = host.createTypedObject(this.BaseAddress, "ntdll", "_IMAGE_DOS_HEADER");
+        this.RawDos = host.createTypedObject(this.BaseAddress, this.__symMod, "_IMAGE_DOS_HEADER");
         this.RawPe = IsX64()
-            ? host.createTypedObject(this.BaseAddress.add(this.RawDos.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64")
-            : host.createTypedObject(this.BaseAddress.add(this.RawDos.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS32");
+            ? host.createTypedObject(this.BaseAddress.add(this.RawDos.e_lfanew), this.__symMod, "_IMAGE_NT_HEADERS64")
+            : host.createTypedObject(this.BaseAddress.add(this.RawDos.e_lfanew), this.__symMod, "_IMAGE_NT_HEADERS32");
     }
 
     toString() { return `ImageInfo(${hex(this.BaseAddress)})`; }
 
     get FileHeader() {
-        var dos = this.RawDos || host.createTypedObject(this.address, "ntdll", "_IMAGE_DOS_HEADER");
-        var pe = this.RawPe || host.createTypedObject(this.address.add(dos.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64");
+        var dos = this.RawDos || host.createTypedObject(this.address, this.__symMod, "_IMAGE_DOS_HEADER");
+        var pe = this.RawPe || host.createTypedObject(this.address.add(dos.e_lfanew), this.__symMod, "_IMAGE_NT_HEADERS64");
         return pe.FileHeader;
     }
 
     get OptionalHeader() {
-        var dos = this.RawDos || host.createTypedObject(this.address, "ntdll", "_IMAGE_DOS_HEADER");
-        var pe = this.RawPe || host.createTypedObject(this.address.add(dos.e_lfanew), "ntdll", "_IMAGE_NT_HEADERS64");
+        var dos = this.RawDos || host.createTypedObject(this.address, this.__symMod, "_IMAGE_DOS_HEADER");
+        var pe = this.RawPe || host.createTypedObject(this.address.add(dos.e_lfanew), this.__symMod, "_IMAGE_NT_HEADERS64");
         return pe.OptionalHeader;
     }
 
@@ -860,26 +864,34 @@ class ImageInfo {
             toString() { return `${this.Name}`; }
         };
         let dirs = [];
-        for (let i = 0; i < 16; i++) {
-            let e = new ImageDirectory(this.OptionalHeader.DataDirectory, i, this.OptionalHeader.ImageBase);
-            switch (i) {
-                case 0: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_EXPORT_DIRECTORY`); break;
-                case 2: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_RESOURCE_DIRECTORY`); break;
-                case 6: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_DEBUG_DIRECTORY`); break;
-                case 10: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_LOAD_CONFIG_DIRECTORY64`); break;
+        if (!this.__isKd) {
+            for (let i = 0; i < 16; i++) {
+                let e = new ImageDirectory(this.OptionalHeader.DataDirectory, i, this.OptionalHeader.ImageBase);
+                switch (i) {
+                    // TODO: missing symbols in KD
+                    case 0: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_EXPORT_DIRECTORY`); break;
+                    case 2: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_RESOURCE_DIRECTORY`); break;
+                    case 6: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_DEBUG_DIRECTORY`); break;
+                    case 10: e["Entry"] = new host.createTypedObject(e.VA, "combase", `_IMAGE_LOAD_CONFIG_DIRECTORY64`); break;
+                }
+                dirs.push(e);
             }
-            dirs.push(e);
         }
         return dirs;
     }
 
     get Sections() {
+        if (this.__isKd)
+            return null;
         let addr = this.OptionalHeader.address.add(this.FileHeader.SizeOfOptionalHeader);
         let nb = this.FileHeader.NumberOfSections;
         return createTypedObject(addr, `combase!_IMAGE_SECTION_HEADER[${nb}]`);
     }
 
     get LoadConfig() {
+        if (this.__isKd)
+            return [];
+
         const dirEntry = this.Directories[10].Entry;
         let configItems = [];
 
@@ -910,11 +922,18 @@ class ModuleEntry {
         this.Image = new ImageInfo(this);
     }
 
-    toString() { return `${this.Path}`; }
+    toString() { return `${this.Name}`; }
 
     get Name() { return this.Entry.BaseDllName.Buffer.ToDisplayString("sub"); }
 
-    get Path() { return this.Entry.FullDllName.Buffer.ToDisplayString("sub"); }
+    get Path() {
+        try {
+            // [KD] Could be paged-out: return empty on error
+            return this.Entry.FullDllName.Buffer.ToDisplayString("sub");
+        } catch (e) {
+            return `memory access to ${hex(this.Entry.BaseDllName.Buffer.address)} failed`;
+        }
+    }
 
     get BaseAddress() { return this.Entry.DllBase.address; }
 }
@@ -936,28 +955,18 @@ class GenericModuleIterator {
 
     *[Symbol.iterator]() {
         for (let mod of this.Iterator()) {
-            let entry = new ModuleEntry(mod);
-            yield new host.indexedValue(entry, [entry.BaseAddress]);
+            try {
+                let e = new ModuleEntry(mod);
+                yield e;
+            } catch (x) {
+                // mem access failed, might be paged-out?
+                warn(`failed to access ${mod.address}`);
+            }
         }
     }
 
     toString() {
-        throw new Error();
-    }
-
-    getDimensionality() {
-        return 1;
-    }
-
-    getValueAt(address) {
-        for (let item of this.Iterator()) {
-            let entry = new ModuleEntry(item);
-            if (entry.BaseAddress.compareTo(address) == 0) {
-                return entry;
-            }
-        }
-
-        throw new RangeError("Unable to find specified value");
+        throw new Error(); // must be overridden by subclass
     }
 }
 
@@ -975,8 +984,8 @@ class ProcessImageIterator extends GenericModuleIterator {
 
 
 class SystemImageIterator extends GenericModuleIterator {
-    constructor(session) {
-        if (session.Attributes.Target.IsKernelTarget === false)
+    constructor() {
+        if (cursession().Attributes.Target.IsKernelTarget === false)
             throw new Error("KD only");
 
         let PsLoadedModuleHead = host.createPointerObject(
@@ -996,27 +1005,27 @@ class SystemImageIterator extends GenericModuleIterator {
 
 class ProcessDlls {
     get Images() {
-        return new ProcessImageIterator(this);
+        return new ProcessImageIterator();
     }
 }
 
 
 class SessionModules {
     get Images() {
-        return new SystemImageIterator(this);
+        return new SystemImageIterator();
     }
 }
 
 
 function initializeScript() {
-    let directives = [
-        new host.apiVersionSupport(1, 7),
+    return [
+        new host.apiVersionSupport(1, 9),
 
         //
         // Add new models
         //
-        new host.namedModelParent(SessionModules, 'Debugger.Models.Session'),
-        new host.namedModelParent(ProcessDlls, 'Debugger.Models.Process'),
+        new host.namedModelParent(SessionModules, "Debugger.Models.Session"),
+        new host.namedModelParent(ProcessDlls, "Debugger.Models.Process"),
 
         //
         // Add type extensions/registrations
@@ -1025,7 +1034,5 @@ function initializeScript() {
         // new host.typeSignatureRegistration(PeSectionHeaderExt, "_IMAGE_SECTION_HEADER"),
         // new host.typeSignatureExtension(DynamicRelocationTableExt, "_IMAGE_DYNAMIC_RELOCATION_TABLE"),
     ];
-
-    return directives;
 }
 
