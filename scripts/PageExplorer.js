@@ -30,7 +30,6 @@
  *   pte              : PTE(PA=54ad000, PFN=54ad, Flags=PRwU--AD-eX)
  *   pa               : 0x54ad830
  *
- *
  */
 
 const DEBUG = true;
@@ -79,18 +78,33 @@ class PageEntryFlags {
     }
 
     FlagsToString() {
-        const str = [
-            this.Present ? "P" : "-",
-            this.ReadWrite ? "RW" : "RO",
-            this.UserSupervisor ? "U" : "K",
-            this.WriteThrough ? "W" : "-",
-            this.CacheDisabled ? "C" : "-",
-            this.Accessed ? "A" : "-",
-            this.Dirty ? "D" : "-",
-            this.LargePage ? "LG" : "-",
-            this.Global ? "G" : "-",
-        ].join(" ");
-        return `[${str}]`;
+        const flag_names = [
+            "Present",
+            "ReadWrite",
+            "UserSupervisor",
+            "WriteThrough",
+            "CacheDisabled",
+            "Accessed",
+            "Dirty",
+            "LargePage",
+            "Global",
+        ];
+
+        let str = [];
+        for (const fn of flag_names) {
+            if (fn == "ReadWrite") {
+                str.push(this[fn] ? "ReadWrite" : "ReadOnly");
+                continue;
+            }
+            if (fn == "UserSupervisor") {
+                str.push(this[fn] ? "User" : "Supervisor");
+                continue;
+            }
+            if (this[fn])
+                str.push(fn);
+        }
+
+        return `[${str.join(",")}]`;
     }
 
     toString() { return `Flags=${this.FlagsToString()}`; }
@@ -105,8 +119,8 @@ class Cr3Flags {
 
     toString() {
         const str = [
-            this.WriteThrough ? "W" : "-",
-            this.CacheDisabled ? "C" : "-",
+            this.WriteThrough ? "WT" : "-",
+            this.CacheDisabled ? "CD" : "-",
         ].join(" ");
         return `[${str}]`;
     }
@@ -153,40 +167,39 @@ class PageGenericEntry {
         return "";
     }
 
-    get [Symbol.metadataDescriptor]() {
-        return {
-            Children: { Help: "Enumerate all the children to this node.", }
-        };
-    }
-
     get Children() {
-        return new PageGenericEntryIterator(this.address, this.__level);
+        return new PageGenericEntryIterator(this);
     }
 }
 
-class PageGenericEntryIterator extends PageGenericEntry {
+class PageGenericEntryIterator {
+    constructor(pe) {
+        this.__pe = pe;
+    }
+
     getDimensionality() {
         return 1;
     }
 
     getValueAt(index) {
-        let pa = this.PhysicalPageAddress.add(i64(index).multiply(8));
-        return new PageGenericEntry(pa, this.__level - 1);
+        let pa = this.__pe.PhysicalPageAddress.add(i64(index).multiply(8));
+        return new PageGenericEntry(pa, this.__pe.__level - 1);
     }
 
     toString() { return ""; }
 
     *[Symbol.iterator]() {
+        const level = this.__pe.__level;
         // TODO handle pml5
-        if (this.__level >= 5)
+        if (level >= 5)
             return;
 
-        if (this.__level <= 1)
+        if (level <= 1)
             return;
 
         for (let i = 0; i < 512; i++) {
-            let pa = this.PhysicalPageAddress.add(i64(i).multiply(8));
-            let pte = new PageGenericEntry(pa, this.__level - 1);
+            let pa = this.__pe.PhysicalPageAddress.add(i * 8);
+            let pte = new PageGenericEntry(pa, level - 1);
             if (pte.Flags.Present === true)
                 yield new host.indexedValue(pte, [i]);
         }
@@ -272,15 +285,19 @@ class VaTree {
     }
 
     get pml4_table() {
-        return new VaTreeIterator(this.base);
+        return new VaTreeIterator(this);
     }
 }
 
-class VaTreeIterator extends VaTree {
+class VaTreeIterator {
+    constructor(vatree) {
+        this.__vatree = vatree;
+    }
+
     *[Symbol.iterator]() {
         for (let i = 0; i < 512; i++) {
-            let pa = this.base.add(i64(i).multiply(8));
-            let pte = new PageGenericEntry(pa, this.level);
+            let pa = this.__vatree.base.add(i * 8);
+            let pte = new PageGenericEntry(pa, this.__vatree.level);
             if (pte.Flags.Present === true)
                 yield new host.indexedValue(pte, [i]);
         }
@@ -292,8 +309,8 @@ class VaTreeIterator extends VaTree {
 
     getValueAt(index) {
         let off = i64(index).multiply(8);
-        let pa = this.base.add(off);
-        return new PageGenericEntry(pa, this.level);
+        let pa = this.__vatree.base.add(off);
+        return new PageGenericEntry(pa, this.__vatree.level);
     }
 
     toString() { return ""; }

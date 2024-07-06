@@ -1,5 +1,5 @@
 ///
-/// <reference path="JSProvider.d.ts" />
+/// <reference path="../extra/JSProvider.d.ts" />
 ///
 "use strict";
 
@@ -32,7 +32,7 @@ const u64 = x => host.memory.readMemoryValues(x, 1, 8)[0];
 function IsX64() { return host.namespace.Debugger.State.PseudoRegisters.General.ptrsize == 8; }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function $(r) { if (!IsKd()) return host.currentThread.Registers.User[r]; else return host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curprocess.Threads.First().Registers.Kernel[r]; }
-function GetSymbolFromAddress(x) { return system(`.printf "%y", ${x.toString(16)}`).First(); }
+function GetSymbolFromAddress(x) { return host.getModuleContainingSymbolInformation(x); }
 
 var g_OutfileName;
 
@@ -51,19 +51,9 @@ function GetAddressFromSymbol(sym) {
         }
         return null;
     }
-    var parts = sym.split("!");
-    var res = host.getModuleSymbolAddress(parts[0], parts[1]);
 
-    if (res === undefined || res === null) {
-        for (let line of system(`x ${sym}`)) {
-            if (line.includes(sym)) {
-                res = host.parseInt64(line.split(" ")[0], 16);
-                break;
-            }
-        }
-    }
-
-    return res;
+    let parts = sym.split("!");
+    return host.getModuleSymbolAddress(parts[0], parts[1]);
 }
 
 
@@ -92,12 +82,12 @@ function GetBasicBlockIdByAddress(BasicBlocks, Address) {
 /**
  *
  */
-function CallGraph(location) {
+function GenerateCallGraph(location) {
     let target;
     const pc = host.namespace.Debugger.State.PseudoRegisters.RegisterAliases.ip;
 
     if (location === undefined) {
-        target = pc;
+        target = pc.address;
     }
     else if (location.toString().startsWith("0x")) {
         target = host.parseInt64(location);
@@ -120,7 +110,7 @@ function CallGraph(location) {
     let nb_bbs = bbs.Count();
 
     ok(`Found ${nb_bbs} basic blocks at ${target}`);
-    if (nb_bbs == 0) {
+    if (nb_bbs === 0) {
         return;
     }
 
@@ -205,7 +195,8 @@ function CallGraph(location) {
  */
 function initializeScript() {
     return [
-        new host.functionAlias(CallGraph, "callgraph"),
+        new host.apiVersionSupport(1, 9),
+        new host.functionAlias(GenerateCallGraph, "callgraph"),
     ];
 }
 
