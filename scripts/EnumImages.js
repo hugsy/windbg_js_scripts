@@ -924,14 +924,21 @@ class ModuleEntry {
 
     toString() { return `${this.Name}`; }
 
-    get Name() { return this.Entry.BaseDllName.Buffer.ToDisplayString("sub"); }
+    get Name() {
+        try {
+            // [KD] Could be paged-out: return empty on error
+            return this.Entry.BaseDllName.Buffer.ToDisplayString("sub");
+        } catch (e) {
+            return `memory access to ${hex(this.Entry.BaseDllName.Buffer.address)} failed`;
+        }
+    }
 
     get Path() {
         try {
             // [KD] Could be paged-out: return empty on error
             return this.Entry.FullDllName.Buffer.ToDisplayString("sub");
         } catch (e) {
-            return `memory access to ${hex(this.Entry.BaseDllName.Buffer.address)} failed`;
+            return `memory access to ${hex(this.Entry.FullDllName.Buffer.address)} failed`;
         }
     }
 
