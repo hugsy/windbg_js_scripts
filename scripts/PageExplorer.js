@@ -15,7 +15,7 @@
  * To use:
  * kd> dx @$pte(0xFFFFF78000000000)
  * or
- * kd> dx @$pte( @rip )
+ * kd> dx @$pte( @rbx )
  * @$pte(@rbx)                 : VA=0xffff800ad9943830, PA=0x54ad830, Offset=0x830
  *   va               : 0xffff800ad9943830
  *   cr3              : 0x1aa002
@@ -31,8 +31,6 @@
  *   pa               : 0x54ad830
  *
  *
- * todo:
- * [ ] !pa2va
  */
 
 const DEBUG = true;
@@ -56,6 +54,7 @@ function IsX64() { return ptrsize() === 8; }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function $(r) { return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
 function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
+function cursession() { return host.namespace.Debugger.State.DebuggerVariables.cursession; }
 
 function u32(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 4)[0]; }
 function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 8)[0]; }
@@ -116,9 +115,9 @@ class Cr3Flags {
 class PageGenericEntry {
     constructor(address, level) {
         this.address = address;
+        this.__level = level;
         this.value = u64(this.address, true);
         this.Flags = new PageEntryFlags(this.value.bitwiseAnd(0xfff));
-        this.__level = level;
 
         if (this.Flags.LargePage) {
             this.PageFrameNumber = this.value
@@ -143,28 +142,6 @@ class PageGenericEntry {
         return `${this.Level} Entry(PA=${hex(this.PhysicalPageAddress)}, ${this.Flags})`;
     }
 
-    *__Walk(only_present) {
-        // TODO handle pml5
-        if (this.__level >= 5)
-            return;
-
-        if (this.__level <= 1)
-            return;
-
-        for (let i = 0; i < 512; i++) {
-            let pa = this.PhysicalPageAddress.add(i64(i).multiply(8));
-            let pte = new PageGenericEntry(pa, this.__level - 1);
-
-            if (!only_present) {
-                yield pte;
-                continue;
-            }
-
-            if (pte.Flags.Present)
-                yield pte;
-        }
-    }
-
     get Level() {
         switch (this.__level) {
             case 5: return "PML5";
@@ -176,18 +153,43 @@ class PageGenericEntry {
         return "";
     }
 
-    get Children() {
-        return this.__Walk(false);
-    }
-
-    get PresentChildren() {
-        return this.__Walk(true);
-    }
-
     get [Symbol.metadataDescriptor]() {
         return {
             Children: { Help: "Enumerate all the children to this node.", }
         };
+    }
+
+    get Children() {
+        return new PageGenericEntryIterator(this.address, this.__level);
+    }
+}
+
+class PageGenericEntryIterator extends PageGenericEntry {
+    getDimensionality() {
+        return 1;
+    }
+
+    getValueAt(index) {
+        let pa = this.PhysicalPageAddress.add(i64(index).multiply(8));
+        return new PageGenericEntry(pa, this.__level - 1);
+    }
+
+    toString() { return ""; }
+
+    *[Symbol.iterator]() {
+        // TODO handle pml5
+        if (this.__level >= 5)
+            return;
+
+        if (this.__level <= 1)
+            return;
+
+        for (let i = 0; i < 512; i++) {
+            let pa = this.PhysicalPageAddress.add(i64(i).multiply(8));
+            let pte = new PageGenericEntry(pa, this.__level - 1);
+            if (pte.Flags.Present === true)
+                yield new host.indexedValue(pte, [i]);
+        }
     }
 }
 
@@ -266,21 +268,35 @@ function PageTableViewer(va) {
 class VaTree {
     constructor(cr3) {
         this.base = cr3.bitwiseShiftRight(12).bitwiseShiftLeft(12);
-    }
-
-    *__Walk(base, level) {
-        const _ptrsize = ptrsize();
-        for (let i = 0; i < 512; i++) {
-            let pa = base.add(i64(i).multiply(_ptrsize));
-            let pte = new PageGenericEntry(pa, level);
-            yield pte;
-        }
+        this.level = 4;
     }
 
     get pml4_table() {
-        return this.__Walk(this.base, 4);
+        return new VaTreeIterator(this.base);
+    }
+}
+
+class VaTreeIterator extends VaTree {
+    *[Symbol.iterator]() {
+        for (let i = 0; i < 512; i++) {
+            let pa = this.base.add(i64(i).multiply(8));
+            let pte = new PageGenericEntry(pa, this.level);
+            if (pte.Flags.Present === true)
+                yield new host.indexedValue(pte, [i]);
+        }
     }
 
+    getDimensionality() {
+        return 1;
+    }
+
+    getValueAt(index) {
+        let off = i64(index).multiply(8);
+        let pa = this.base.add(off);
+        return new PageGenericEntry(pa, this.level);
+    }
+
+    toString() { return ""; }
 }
 
 
@@ -324,7 +340,25 @@ function PhysicalAddressToVirtualAddress(addr) {
 }
 
 
+function FindPml4SelfReferenceEntry() {
+    // Get System process object, extract the CR3
+    let system_process = cursession().Processes[4].KernelObject;
+    let cr3 = system_process.Pcb.DirectoryTableBase;
 
+    // Get the PT view for System
+    let pv = new VaTree(cr3);
+    let pml4 = pv.pml4_table;
+
+    // Browse all entries, looking for the self-referencing one
+    for (let idx = 0; idx < 512; idx++) {
+        if (pml4.getValueAt(idx).PhysicalPageAddress.compareTo(pv.base) == 0) {
+            return idx;
+        }
+    }
+
+    // No luck (weird)
+    return undefined;
+}
 
 /**
  *
@@ -346,6 +380,6 @@ function initializeScript() {
         new host.functionAlias(PageTableViewer, "pte2"),
         new host.functionAlias(PageTableExplorer, "ptview"),
         new host.functionAlias(GetPfnEntry, "pfn2"),
-        new host.functionAlias(PhysicalAddressToVirtualAddress, "pa2va"),
+        new host.functionAlias(FindPml4SelfReferenceEntry, "selfref"),
     ];
 }
