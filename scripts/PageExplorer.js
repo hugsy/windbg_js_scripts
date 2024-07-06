@@ -55,12 +55,13 @@ function pagesize(isLarge = false) { return isLarge ? LARGE_PAGE_SIZE : NORMAL_P
 function IsX64() { return ptrsize() === 8; }
 function IsKd() { return host.namespace.Debugger.Sessions.First().Attributes.Target.IsKernelTarget === true; }
 function $(r) { return IsKd() ? host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r] || host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.Kernel[r] : host.namespace.Debugger.State.DebuggerVariables.curthread.Registers.User[r]; }
+function curprocess() { return host.namespace.Debugger.State.DebuggerVariables.curprocess; }
 
 function u32(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 4)[0]; }
 function u64(x, y = false) { if (y) { x = host.memory.physicalAddress(x); } return host.memory.readMemoryValues(x, 1, 8)[0]; }
-function poi(x) { if (IsX64()) return u64(x); else return u32(x); }
+function poi(x) { return IsX64() ? u64(x) : u32(x); }
 
-function ProcessDirectoryTableBase() { return host.namespace.Debugger.State.DebuggerVariables.curprocess.KernelObject.Pcb.DirectoryTableBase; }
+function ProcessDirectoryTableBase() { return curprocess().KernelObject.Pcb.DirectoryTableBase; }
 function GetPfnDatabase() { return poi(host.getModuleSymbolAddress("nt", "MmPfnDatabase")); }
 
 
@@ -113,20 +114,12 @@ class Cr3Flags {
 }
 
 class PageGenericEntry {
-    constructor(address) {
+    constructor(address, level) {
         this.address = address;
         this.value = u64(this.address, true);
         this.Flags = new PageEntryFlags(this.value.bitwiseAnd(0xfff));
+        this.__level = level;
 
-        /**
-        kd> dt nt!_MMPTE_HARDWARE
-        [...]
-        +0x000 PageFrameNumber  : Pos 12, 36 Bits
-        +0x000 ReservedForHardware : Pos 48, 4 Bits
-        +0x000 ReservedForSoftware : Pos 52, 4 Bits
-        +0x000 WsleAge          : Pos 56, 4 Bits
-        +0x000 WsleProtection   : Pos 60, 3 Bits
-        */
         if (this.Flags.LargePage) {
             this.PageFrameNumber = this.value
                 .bitwiseShiftRight(21).bitwiseAnd(0x3fffffff); // 30 bits
@@ -143,24 +136,73 @@ class PageGenericEntry {
     get Pte() {
         return this.Pfn.PteAddress;
     }
+
+    toString() {
+        if (!this.Flags.Present)
+            return "";
+        return `${this.Level} Entry(PA=${hex(this.PhysicalPageAddress)}, ${this.Flags})`;
+    }
+
+    *__Walk(only_present) {
+        // TODO handle pml5
+        if (this.__level >= 5)
+            return;
+
+        if (this.__level <= 1)
+            return;
+
+        for (let i = 0; i < 512; i++) {
+            let pa = this.PhysicalPageAddress.add(i64(i).multiply(8));
+            let pte = new PageGenericEntry(pa, this.__level - 1);
+
+            if (!only_present) {
+                yield pte;
+                continue;
+            }
+
+            if (pte.Flags.Present)
+                yield pte;
+        }
+    }
+
+    get Level() {
+        switch (this.__level) {
+            case 5: return "PML5";
+            case 4: return "PML4";
+            case 3: return "PDPT";
+            case 2: return "PD";
+            case 1: return "PT";
+        }
+        return "";
+    }
+
+    get Children() {
+        return this.__Walk(false);
+    }
+
+    get PresentChildren() {
+        return this.__Walk(true);
+    }
+
+    get [Symbol.metadataDescriptor]() {
+        return {
+            Children: { Help: "Enumerate all the children to this node.", }
+        };
+    }
 }
 
 
-class PageTableEntry extends PageGenericEntry {
-    toString() { return `PTE(PA=${hex(this.PhysicalPageAddress)}, PFN=${hex(this.PageFrameNumber)}, ${this.Flags})` };
-}
+class Pml4Entry extends PageGenericEntry { }
+class PageDirectoryPageEntry extends PageGenericEntry { }
+class PageDirectoryEntry extends PageGenericEntry { }
+class PageTableEntry extends PageGenericEntry { }
 
 
-class PageDirectoryEntry extends PageGenericEntry {
-    toString() { return `PDE(PA=${hex(this.PhysicalPageAddress)}, PFN=${hex(this.PageFrameNumber)}, ${this.Flags})`; }
-}
-
-
-class PagedVirtualAddress {
-    constructor(addr) {
+class VirtualAddress {
+    constructor(addr, cr3) {
         const _ptrsize = ptrsize();
-        this.va = addr;
-        const PageBase = ProcessDirectoryTableBase();
+        this.__va = host.parseInt64(addr);
+        const PageBase = cr3 ? i64(cr3) : ProcessDirectoryTableBase();
         this.cr3 = PageBase.bitwiseShiftRight(12).bitwiseShiftLeft(12);
         this.pml4e_offset = this.va.bitwiseShiftRight(39).bitwiseAnd(0x1ff);
         this.pdpe_offset = this.va.bitwiseShiftRight(30).bitwiseAnd(0x1ff);
@@ -168,11 +210,11 @@ class PagedVirtualAddress {
 
         this.cr3_flags = new Cr3Flags(PageBase.bitwiseAnd(0x18));
 
-        this.pml4e = new PageDirectoryEntry(this.cr3.add(this.pml4e_offset.multiply(_ptrsize)));
+        this.pml4e = new Pml4Entry(this.cr3.add(this.pml4e_offset.multiply(_ptrsize)), 4);
         if (!this.pml4e.Flags.Present) { return; }
-        this.pdpe = new PageDirectoryEntry(this.pml4e.PhysicalPageAddress.add(this.pdpe_offset.multiply(_ptrsize)));
+        this.pdpe = new PageDirectoryPageEntry(this.pml4e.PhysicalPageAddress.add(this.pdpe_offset.multiply(_ptrsize)), 3);
         if (!this.pdpe.Flags.Present) { return; }
-        this.pde = new PageDirectoryEntry(this.pdpe.PhysicalPageAddress.add(this.pde_offset.multiply(_ptrsize)));
+        this.pde = new PageDirectoryEntry(this.pdpe.PhysicalPageAddress.add(this.pde_offset.multiply(_ptrsize)), 2);
         if (!this.pde.Flags.Present) { return; }
 
         if (this.pde.Flags.LargePage) {
@@ -180,7 +222,7 @@ class PagedVirtualAddress {
             this.pa = this.pde.PhysicalPageAddress.add(this.offset);
         } else {
             this.pte_offset = this.va.bitwiseShiftRight(12).bitwiseAnd(0x1ff);
-            this.pte = new PageTableEntry(this.pde.PhysicalPageAddress.add(this.pte_offset.multiply(_ptrsize)));
+            this.pte = new PageTableEntry(this.pde.PhysicalPageAddress.add(this.pte_offset.multiply(_ptrsize)), 1);
             if (!this.pte.Flags.Present) { return; }
             this.offset = this.va.bitwiseAnd(0xfff);
             this.pa = this.pte.PhysicalPageAddress.add(this.offset);
@@ -196,23 +238,60 @@ class PagedVirtualAddress {
     toString() {
         return `VA=0x${hex(this.va)}, PA=0x${hex(this.pa)}, Offset=0x${hex(this.offset)}`;
     }
+
+    get va() {
+        return this.__va.add(0);
+    }
 }
 
 
-function PageTableExplorer(addr) {
+/**
+ * Equivalent of `!pte`
+ * @param {string} va
+ * @returns
+ */
+function PageTableViewer(va) {
     if (!IsKd() || !IsX64()) {
-        err("Only KD+x64");
-        return;
+        throw new Error("Only KD+x64");
     }
 
-    if (addr === undefined) {
-        err(`invalid address`);
-        return;
+    if (!va) {
+        throw new Error(`invalid address`);
     }
 
-    return new PagedVirtualAddress(i64(addr));
+    return new VirtualAddress(i64(va));
 }
 
+
+class VaTree {
+    constructor(cr3) {
+        this.base = cr3.bitwiseShiftRight(12).bitwiseShiftLeft(12);
+    }
+
+    *__Walk(base, level) {
+        const _ptrsize = ptrsize();
+        for (let i = 0; i < 512; i++) {
+            let pa = base.add(i64(i).multiply(_ptrsize));
+            let pte = new PageGenericEntry(pa, level);
+            yield pte;
+        }
+    }
+
+    get pml4_table() {
+        return this.__Walk(this.base, 4);
+    }
+
+}
+
+
+function PageTableExplorer(cr3) {
+    if (!IsKd() || !IsX64()) {
+        throw new Error("Only KD+x64");
+    }
+
+    const pml = cr3 ? i64(cr3) : ProcessDirectoryTableBase();
+    return new VaTree(pml);
+}
 
 
 /**
@@ -251,7 +330,10 @@ function PhysicalAddressToVirtualAddress(addr) {
  *
  */
 function invokeScript(addr) {
-    log(PageTableExplorer(addr).toString());
+    let insn = PageTableViewer(addr);
+    if (!insn)
+        return;
+    log(insn.toString());
 }
 
 
@@ -260,8 +342,9 @@ function invokeScript(addr) {
  */
 function initializeScript() {
     return [
-        new host.apiVersionSupport(1, 7),
-        new host.functionAlias(PageTableExplorer, "pte2"),
+        new host.apiVersionSupport(1, 9),
+        new host.functionAlias(PageTableViewer, "pte2"),
+        new host.functionAlias(PageTableExplorer, "ptview"),
         new host.functionAlias(GetPfnEntry, "pfn2"),
         new host.functionAlias(PhysicalAddressToVirtualAddress, "pa2va"),
     ];
