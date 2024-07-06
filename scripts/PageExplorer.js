@@ -190,11 +190,7 @@ class PageGenericEntryIterator {
 
     *[Symbol.iterator]() {
         const level = this.__pe.__level;
-        // TODO handle pml5
-        if (level >= 5)
-            return;
-
-        if (level <= 1)
+        if (level <= 1 || level >= 6)
             return;
 
         for (let i = 0; i < 512; i++) {
