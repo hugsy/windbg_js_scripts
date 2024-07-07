@@ -103,11 +103,10 @@ class PageEntryFlags {
             if (this[fn])
                 str.push(fn);
         }
-
         return `[${str.join(",")}]`;
     }
 
-    toString() { return `Flags=${this.FlagsToString()}`; }
+    toString() { return this.FlagsToString(); }
 }
 
 class Cr3Flags {
@@ -153,10 +152,14 @@ class PageGenericEntry {
     toString() {
         if (!this.Flags.Present)
             return "";
-        return `${this.Level} Entry(PA=${hex(this.PhysicalPageAddress)}, ${this.Flags})`;
+        return `${this.LevelString} Entry(PA=${hex(this.PhysicalPageAddress)}, Flags=${this.Flags})`;
     }
 
     get Level() {
+        return this.__level;
+    }
+    
+    get LevelString() {
         switch (this.__level) {
             case 5: return "PML5";
             case 4: return "PML4";
@@ -183,13 +186,13 @@ class PageGenericEntryIterator {
 
     getValueAt(index) {
         let pa = this.__pe.PhysicalPageAddress.add(i64(index).multiply(8));
-        return new PageGenericEntry(pa, this.__pe.__level - 1);
+        return new PageGenericEntry(pa, this.__pe.Level - 1);
     }
 
     toString() { return ""; }
 
     *[Symbol.iterator]() {
-        const level = this.__pe.__level;
+        const level = this.__pe.Level;
         if (level <= 1 || level >= 6)
             return;
 
