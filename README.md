@@ -4,14 +4,16 @@
 ## Install as a WinDbg gallery
 
  - Clone the repository
-```
+
+```bash
 git clone https://github.com/hugsy/windbg_js_scripts
 ```
 
  - In `windbg_js_scripts\config.xml`, edit the lines `Setting Name="LocalCacheRootFolder"` to reflect the local path of the repository.
 
  - In WinDbg, load the `config.xml` file and save the settings:
-```
+
+```text
 windbg> .settings load \path\to\windbg_js_scripts\config.xml
 [...]\windbg_js_scripts\config.xml has been loaded successfully.
 windbg> .settings save
@@ -20,7 +22,7 @@ Settings have been saved.
 
 Every time WinDbg loads, the galleries will be loaded under `Debugger.State.ExtensionGallery.ExtensionRepositories`:
 
-```
+```text
 kd> dx -r1 Debugger.State.ExtensionGallery.ExtensionRepositories
 Debugger.State.ExtensionGallery.ExtensionRepositories
     [0x0]            : UserExtensions
@@ -31,7 +33,7 @@ Debugger.State.ExtensionGallery.ExtensionRepositories
 
 And the scripts available for the current session can be listed too:
 
-```
+```text
 kd> dx -r1 Debugger.State.ExtensionGallery.ExtensionRepositories.Where( x => x.Name == "hugsysgallery" ).First().Packages
 Debugger.State.ExtensionGallery.ExtensionRepositories.Where( x => x.Name == "hugsysgallery" ).First().Packages
     [0x0]            : EnumCallbacks
@@ -40,16 +42,17 @@ Debugger.State.ExtensionGallery.ExtensionRepositories.Where( x => x.Name == "hug
     [0x3]            : DumpLookasides
     [0x4]            : GetSsdtTable
     [0x5]            : BigPool
-    [0x6]            : VadExplorer
-    [0x7]            : ObjectExplorer
-    [0x8]            : RegistryExplorer
-    [0x9]            : GetSiloMonitors
-    [0xa]            : EnumApc
-    [0xb]            : EnvVars
-    [0xc]            : EnumImages
-    [0xd]            : CallGraph
-    [0xe]            : TraceFunctions
-    [0xf]            : CyclicPattern
+    [0x6]            : PageExplorer
+    [0x7]            : VadExplorer
+    [0x8]            : ObjectExplorer
+    [0x9]            : RegistryExplorer
+    [0xa]            : GetSiloMonitors
+    [0xb]            : EnumApc
+    [0xc]            : EnvVars
+    [0xd]            : EnumImages
+    [0xe]            : CallGraph
+    [0xf]            : TraceFunctions
+    [0x10]           : CyclicPattern
 ```
 
 

@@ -8,7 +8,8 @@
         <Version>1.0.0.0</Version>
         <Description>Dump known callbacks.</Description>
         <Components>
-            <ScriptComponent Name="EnumCallbacks" Type="Engine" File="..\scripts\EnumCallbacks.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="EnumCallbacks" Type="Engine" File="..\scripts\EnumCallbacks.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -31,7 +32,8 @@
         <Version>1.0.0.0</Version>
         <Description>Adds GDT information to current thread.</Description>
         <Components>
-            <ScriptComponent Name="GetIdtGdt" Type="Engine" File="..\scripts\GetIdtGdt.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="GetIdtGdt" Type="Engine" File="..\scripts\GetIdtGdt.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -60,7 +62,8 @@
         <Version>1.0.0.0</Version>
         <Description>Break on process creation.</Description>
         <Components>
-            <ScriptComponent Name="BreakOnProcessCreate" Type="Engine" File="..\scripts\BreakOnProcessCreate.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="BreakOnProcessCreate" Type="Engine"
+                File="..\scripts\BreakOnProcessCreate.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -86,7 +89,8 @@
         <Version>1.0.0.1</Version>
         <Description>Get the SSDT as WinDBG DDM array.</Description>
         <Components>
-            <ScriptComponent Name="DumpLookasides" Type="Engine" File="..\scripts\DumpLookasides.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="DumpLookasides" Type="Engine" File="..\scripts\DumpLookasides.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -112,7 +116,8 @@
         <Version>1.0.0.0</Version>
         <Description>Get the SSDT as WinDBG DDM array.</Description>
         <Components>
-            <ScriptComponent Name="GetSsdtTable" Type="Engine" File="..\scripts\GetSsdtTable.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="GetSsdtTable" Type="Engine" File="..\scripts\GetSsdtTable.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -138,7 +143,8 @@
         <Version>1.0.0.0</Version>
         <Description>Browse through Big Pool chunks easily via LINQ</Description>
         <Components>
-            <ScriptComponent Name="BigPool" Type="Engine" File="..\scripts\BigPool.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="BigPool" Type="Engine" File="..\scripts\BigPool.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -160,54 +166,76 @@
     </ExtensionPackage>
 
     <ExtensionPackage>
-        <Name>VadExplorer</Name>
+        <Name>Kernel Explorer</Name>
         <Version>1.0.0.0</Version>
-        <Description>Explore VADs of a process  via LINQ</Description>
+        <Description>Scripts to explore the kernel easily</Description>
         <Components>
-            <ScriptComponent Name="VadExplorer" Type="Engine" File="..\scripts\VadExplorer.js" FilePathKind="RepositoryRelative">
+
+            <ScriptComponent Name="PageExplorer" Type="Engine" File="..\scripts\PageExplorer.js"
+                FilePathKind="RepositoryRelative">
+                <LoadTriggers>
+                    <TriggerSet>
+                        <TargetTrigger Type="Kernel" />
+                    </TriggerSet>
+                </LoadTriggers>
+                <FunctionAliases>
+                    <FunctionAlias Name="ptview">
+                        <AliasItem>
+                            <Syntax><![CDATA[ptview([$CR3])]]></Syntax>
+                            <Description><![CDATA[Explore Page Tables of a process via LINQ. By default, uses the CR3 of the process stopped into.]]></Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                    <FunctionAlias Name="selfref">
+                        <AliasItem>
+                            <Syntax><![CDATA[selfref()]]></Syntax>
+                            <Description><![CDATA[Find the Self-Reference PML index from the SYSTEM process page table]]></Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                    <FunctionAlias Name="pte2">
+                        <AliasItem>
+                            <Syntax><![CDATA[pte2($Address)]]></Syntax>
+                            <Description><![CDATA[Alternative to `!pte`]]></Description>
+                        </AliasItem>
+                    </FunctionAlias>
+                </FunctionAliases>
+            </ScriptComponent>
+
+            <ScriptComponent Name="VadExplorer" Type="Engine" File="..\scripts\VadExplorer.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="KernelObject"/>
+                    <NamedExtension Name="Debugger.Models.Process"
+                        Namespace="Debugger.Models.Process" Property="KernelObject" />
                 </ObjectExtensionList>
             </ScriptComponent>
-        </Components>
-    </ExtensionPackage>
 
-    <ExtensionPackage>
-        <Name>ObjectExplorer</Name>
-        <Version>1.0.0.0</Version>
-        <Description>Explore objects from nt!ObpRootDirectoryObject directly from WinDbg via LINQ (WinObj-like).</Description>
-        <Components>
-            <ScriptComponent Name="ObjectExplorer.js" Type="Engine" File="..\scripts\ObjectExplorer.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="ObjectExplorer" Type="Engine"
+                File="..\scripts\ObjectExplorer.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Objects"/>
+                    <NamedExtension Name="Debugger.Models.Session"
+                        Namespace="Debugger.Models.Session" Property="Objects" />
                 </ObjectExtensionList>
             </ScriptComponent>
-        </Components>
-    </ExtensionPackage>
 
-    <ExtensionPackage>
-        <Name>RegistryExplorer</Name>
-        <Version>1.0.0.1</Version>
-        <Description>Navigate the registry from WinDbg via LINQ (WinObj-like).</Description>
-        <Components>
-            <ScriptComponent Name="RegistryExplorer.js" Type="Engine" File="..\scripts\RegistryExplorer.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="RegistryExplorer" Type="Engine"
+                File="..\scripts\RegistryExplorer.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Objects"/>
+                    <NamedExtension Name="Debugger.Models.Session"
+                        Namespace="Debugger.Models.Session" Property="Objects" />
                 </ObjectExtensionList>
             </ScriptComponent>
         </Components>
@@ -218,7 +246,8 @@
         <Version>1.0.0.0</Version>
         <Description>Enumerate all Silo Monitors</Description>
         <Components>
-            <ScriptComponent Name="GetSiloMonitors" Type="Engine" File="..\scripts\GetSiloMonitors.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="GetSiloMonitors" Type="Engine"
+                File="..\scripts\GetSiloMonitors.js" FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
@@ -245,16 +274,20 @@
         <Version>1.0.0.0</Version>
         <Description>Enumerate APC in the current KD session.</Description>
         <Components>
-            <ScriptComponent Name="EnumApc" Type="Engine" File="..\scripts\EnumApc.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="EnumApc" Type="Engine" File="..\scripts\EnumApc.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="Kernel" />
                     </TriggerSet>
                 </LoadTriggers>
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Objects"/>
-                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Objects"/>
-                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread" Property="Objects"/>
+                    <NamedExtension Name="Debugger.Models.Session"
+                        Namespace="Debugger.Models.Session" Property="Objects" />
+                    <NamedExtension Name="Debugger.Models.Process"
+                        Namespace="Debugger.Models.Process" Property="Objects" />
+                    <NamedExtension Name="Debugger.Models.Thread" Namespace="Debugger.Models.Thread"
+                        Property="Objects" />
                 </ObjectExtensionList>
                 <FunctionAliases>
                     <FunctionAlias Name="SystemApcs">
@@ -280,14 +313,16 @@
         <Version>1.0.0.0</Version>
         <Description>Get the environment variables a usermode process.</Description>
         <Components>
-            <ScriptComponent Name="EnvVars" Type="Engine" File="..\scripts\EnvVars.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="EnvVars" Type="Engine" File="..\scripts\EnvVars.js"
+                FilePathKind="RepositoryRelative">
                 <LoadTriggers>
                     <TriggerSet>
                         <TargetTrigger Type="User" />
                     </TriggerSet>
                 </LoadTriggers>
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Environment"/>
+                    <NamedExtension Name="Debugger.Models.Process"
+                        Namespace="Debugger.Models.Process" Property="Environment" />
                 </ObjectExtensionList>
             </ScriptComponent>
         </Components>
@@ -302,7 +337,8 @@
         <Version>1.0.0.0</Version>
         <Description>Enumerate images loaded on the system.</Description>
         <Components>
-            <ScriptComponent Name="EnumDlls" Type="Engine" File="..\scripts\EnumDlls.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="EnumDlls" Type="Engine" File="..\scripts\EnumDlls.js"
+                FilePathKind="RepositoryRelative">
                 <FunctionAliases>
                     <FunctionAlias Name="SystemModules">
                         <AliasItem>
@@ -322,8 +358,10 @@
                     </FunctionAlias>
                 </FunctionAliases>
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Process" Namespace="Debugger.Models.Process" Property="Dlls"/>
-                    <NamedExtension Name="Debugger.Models.Session" Namespace="Debugger.Models.Session" Property="Modules"/>
+                    <NamedExtension Name="Debugger.Models.Process"
+                        Namespace="Debugger.Models.Process" Property="Dlls" />
+                    <NamedExtension Name="Debugger.Models.Session"
+                        Namespace="Debugger.Models.Session" Property="Modules" />
                 </ObjectExtensionList>
             </ScriptComponent>
         </Components>
@@ -334,7 +372,8 @@
         <Version>1.0.0.0</Version>
         <Description>Generate a callgraph from function name visible with MermaidJS.</Description>
         <Components>
-            <ScriptComponent Name="CallGraph" Type="Engine" File="..\scripts\CallGraph.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="CallGraph" Type="Engine" File="..\scripts\CallGraph.js"
+                FilePathKind="RepositoryRelative">
                 <FunctionAliases>
                     <FunctionAlias Name="callgraph">
                         <AliasItem>
@@ -356,7 +395,8 @@
         <Version>1.0.0.0</Version>
         <Description>Trace functions and dumps its argument(s) at runtime.</Description>
         <Components>
-            <ScriptComponent Name="TraceFunction" Type="Engine" File="..\scripts\TraceFunctions.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="TraceFunction" Type="Engine" File="..\scripts\TraceFunctions.js"
+                FilePathKind="RepositoryRelative">
                 <FunctionAliases>
                     <FunctionAlias Name="trace">
                         <AliasItem>
@@ -378,13 +418,14 @@
         <Version>1.0.0.0</Version>
         <Description>Generate a de Bruijn cyclic sequence, and/or search through it.</Description>
         <Components>
-            <ScriptComponent Name="CyclicPattern" Type="Engine" File="..\scripts\CyclicPattern.js" FilePathKind="RepositoryRelative">
+            <ScriptComponent Name="CyclicPattern" Type="Engine" File="..\scripts\CyclicPattern.js"
+                FilePathKind="RepositoryRelative">
                 <ObjectExtensionList>
-                    <NamedExtension Name="Debugger.Models.Utility" Namespace="Debugger.Models.Utility" Property="CyclicPattern"/>
+                    <NamedExtension Name="Debugger.Models.Utility"
+                        Namespace="Debugger.Models.Utility" Property="CyclicPattern" />
                 </ObjectExtensionList>
             </ScriptComponent>
         </Components>
     </ExtensionPackage>
-
 
 </ExtensionPackages>
